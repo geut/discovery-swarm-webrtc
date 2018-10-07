@@ -20,5 +20,8 @@
   "dependencies": {
     "pump": "^3.0.0",
     "webrtc-swarm": "^2.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
