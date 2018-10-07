@@ -1,0 +1,24 @@
+{
+  "name": "@geut/discovery-swarm-webrtc",
+  "version": "1.0.0",
+  "description": "webrtc-swarm but with a similar API to discovery-swarm",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geut/discovery-swarm-webrtc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/geut/discovery-swarm-webrtc/issues"
+  },
+  "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
+  "dependencies": {
+    "pump": "^3.0.0",
+    "webrtc-swarm": "^2.9.0"
+  }
+}
