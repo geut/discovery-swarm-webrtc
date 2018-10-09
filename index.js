@@ -3,8 +3,6 @@ const EventEmitter = require('events')
 const createSwarm = require('webrtc-swarm')
 const pump = require('pump')
 
-const _handshake = Symbol('handshake')
-
 class DiscoverSwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
     super()
@@ -33,7 +31,7 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     channel.swarm.on('peer', (peer, id) => {
       const conn = this.stream()
       this.emit('handshaking', conn, { id })
-      conn.on('handshake', this[_handshake].bind(this, channel, conn, id))
+      conn.on('handshake', this._handshake.bind(this, channel, conn, id))
       pump(peer, conn, peer)
     })
 
@@ -45,7 +43,7 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     this.channels.set(hub.name, channel)
   }
 
-  [_handshake] (channel, conn, id) {
+  _handshake (channel, conn, id) {
     if (channel.peers.has(id)) {
       const oldPeer = channel.peers.get(id)
       this.emit('redundant-connection', oldPeer, { id })
