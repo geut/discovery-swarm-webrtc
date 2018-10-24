@@ -36,23 +36,26 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
 
     channel.swarm.on('disconnect', (peer, id) => {
+      const info = { id }
       channel.peers.delete(id)
-      this.emit('connection-closed', peer, { id })
+      this.emit('connection-closed', peer, info)
     })
 
     this.channels.set(hub.name, channel)
   }
 
   _handshake (channel, conn, id) {
+    const info = { id }
+
     if (channel.peers.has(id)) {
       const oldPeer = channel.peers.get(id)
-      this.emit('redundant-connection', oldPeer, { id })
+      this.emit('redundant-connection', oldPeer, info)
       channel.peers.delete(id)
       oldPeer.destroy()
     }
 
     channel.peers.set(id, conn)
-    this.emit('connection', conn, { id })
+    this.emit('connection', conn, info)
   }
 }
 
