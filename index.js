@@ -17,8 +17,10 @@ class DiscoverSwarmWebrtc extends EventEmitter {
   join (hub, opts = {}) {
     assert(hub && typeof hub === 'object', 'A SignalHub instance is required.')
 
-    if (this.channels.has(hub.app)) {
-      throw new Error(`Swarm with the hub name '${hub.app}' already defined`)
+    const channelName = hub.app
+
+    if (this.channels.has(channelName)) {
+      throw new Error(`Swarm with the channel '${channelName}' already defined`)
     }
 
     const channel = {
@@ -29,23 +31,24 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     }
 
     channel.swarm.on('peer', (peer, id) => {
-      const conn = this.stream()
-      this.emit('handshaking', conn, { id })
-      conn.on('handshake', this._handshake.bind(this, channel, conn, id))
+      const info = { id, channel: channelName }
+      const conn = this.stream(info)
+      this.emit('handshaking', conn, info)
+      conn.on('handshake', this._handshake.bind(this, channel, conn, info))
       pump(peer, conn, peer)
     })
 
     channel.swarm.on('disconnect', (peer, id) => {
-      const info = { id }
+      const info = { id, channel: channelName }
       channel.peers.delete(id)
       this.emit('connection-closed', peer, info)
     })
 
-    this.channels.set(hub.name, channel)
+    this.channels.set(channelName, channel)
   }
 
-  _handshake (channel, conn, id) {
-    const info = { id }
+  _handshake (channel, conn, info) {
+    const { id } = info
 
     if (channel.peers.has(id)) {
       const oldPeer = channel.peers.get(id)
