@@ -2,6 +2,7 @@ const assert = require('assert')
 const EventEmitter = require('events')
 const createSwarm = require('webrtc-swarm')
 const pump = require('pump')
+const noop = () => void 0
 
 class DiscoverSwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
@@ -12,6 +13,7 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     this.id = opts.id
     this.stream = opts.stream
     this.channels = new Map()
+    this.destroyed = false
   }
 
   join (hub, opts = {}) {
@@ -45,6 +47,29 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
 
     this.channels.set(channelName, channel)
+  }
+
+  close (cb) {
+    if (this.destroyed) return process.nextTick(cb || noop)
+
+    this.destroyed = true
+
+    if(cb) this.once('close', cb)
+
+    if (!this.channels.size) return process.nextTick(() => {
+      this.emit('close')
+    })
+
+    this.channels.forEach((channel, channelName) => {
+      channel.swarm.close(() => {
+        this.channels.delete(channelName)
+        if(!this.channels.size) this.emit('close')
+      })
+    })
+  }
+
+  destroy (cb) {
+    this.close(cb)
   }
 
   _handshake (channel, conn, info) {
