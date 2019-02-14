@@ -61,7 +61,7 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
 
     this.channels.forEach((channel, channelName) => {
-      channel.close(() => {
+      channel.swarm.close(() => {
         this.channels.delete(channelName)
         if(!this.channels.size) this.emit('close')
       })
