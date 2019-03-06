@@ -19,7 +19,7 @@
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
     "pump": "^3.0.0",
-    "webrtc-swarm": "^2.9.0"
+    "webrtc-swarm": "github:QwantResearch/webrtc-swarm#masq"
   },
   "publishConfig": {
     "access": "public"
