@@ -20,11 +20,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   join (channelName, opts = {}) {
-    assert(channelName && typeof channelName === 'string', 'A channel name is required.')
+    assert(channelName, 'A channel name is required.')
 
     if (this.channels.has(channelName)) {
       // discovery-channel returns if you're already joined, we should to
       return
+    }
+
+    // Account for when the channel is a Buffer instance (hyperdrive.discoveryKey)
+    if(typeof channelName === 'object') {
+      channelName = channelName.toString('hex')
     }
 
     const hub = subSignalhub(this.hub, channelName)
