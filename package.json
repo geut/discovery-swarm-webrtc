@@ -19,6 +19,7 @@
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
     "pump": "^3.0.0",
+    "sub-signalhub": "^1.0.1",
     "webrtc-swarm": "^2.9.0"
   },
   "publishConfig": {

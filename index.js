@@ -2,28 +2,32 @@ const assert = require('assert')
 const EventEmitter = require('events')
 const createSwarm = require('webrtc-swarm')
 const pump = require('pump')
+const subSignalhub = require('sub-signalhub')
 const noop = () => void 0
 
-class DiscoverSwarmWebrtc extends EventEmitter {
+class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
     super()
 
     assert(typeof opts.stream === 'function', 'A `stream` function prop is required.')
+    assert(opts.hub, 'A signalhub `hub` instance is required')
 
     this.id = opts.id
     this.stream = opts.stream
+    this.hub = opts.hub
     this.channels = new Map()
     this.destroyed = false
   }
 
-  join (hub, opts = {}) {
-    assert(hub && typeof hub === 'object', 'A SignalHub instance is required.')
-
-    const channelName = hub.app
+  join (channelName, opts = {}) {
+    assert(channelName && typeof channelName === 'string', 'A channel name is required.')
 
     if (this.channels.has(channelName)) {
-      throw new Error(`Swarm with the channel '${channelName}' already defined`)
+      // discovery-channel returns if you're already joined, we should to
+      return
     }
+
+    const hub = subSignalhub(this.hub, channelName)
 
     const channel = {
       peers: new Map(),
@@ -47,6 +51,16 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
 
     this.channels.set(channelName, channel)
+  }
+
+  leave (channelName) {
+    const channel = this.channels.get(channelName)
+
+    if(!channel) return
+
+    channel.close()
+
+    this.channels.delete(channelName)
   }
 
   close (cb) {
@@ -87,4 +101,4 @@ class DiscoverSwarmWebrtc extends EventEmitter {
   }
 }
 
-module.exports = (...args) => new DiscoverSwarmWebrtc(...args)
+module.exports = (...args) => new DiscoverySwarmWebrtc(...args)
