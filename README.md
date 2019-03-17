@@ -13,11 +13,12 @@ $ npm install @geut/discovery-swarm-webrtc
 const swarm = require('@geut/discovery-swarm-webrtc')
 
 const sw = swarm({
+  hub: signalhub('application-id', ['http://yourhub.com'])
   id: 'id',
   stream: () => feed.replicate()
 })
 
-sw.join(signalhub('channel-id', ['http://yourhub.com']))
+sw.join('channel-id')
 
 sw.on('connection', peer => {
   // connected
@@ -34,14 +35,23 @@ Creates a new Swarm. Options include:
 {
   id: cuid(), // peer-id for user
   stream: stream, // stream to replicate across peers
+  hub: null, // The signalhub instance to use.
 }
 ```
 
-#### `sw.join(hub, [opts])`
+#### `sw.join(channel, [opts])`
 
-Join a channel specified by [hub](https://github.com/mafintosh/signalhub) instance.
+Join a channel specified by `channel`.
 
 The options are for the `webrtc-swarm` instance.
+
+### `sw.leave(channel)`
+
+Leaves the channel specified by `channel`, closing the `webrtc-swarm` instance.
+
+### `sw.close(cb)`
+
+Closes the swarm and invokes `cb` if it was provided.
 
 ### Events
 
