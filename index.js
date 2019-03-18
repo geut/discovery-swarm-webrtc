@@ -50,7 +50,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     channel.swarm.on('disconnect', (peer, id) => {
-      const info = { id, channel: channelName }
+      const info = { id, channel: channelName, type: 'webrtc' }
       channel.peers.delete(id)
       this.emit('connection-closed', peer, info)
     })
