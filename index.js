@@ -211,6 +211,8 @@ class DiscoverSwarmWebrtc extends EventEmitter {
       this.attempts[id] = this.maxAttempts
     }
 
+    this.emit('reconnecting', info)
+
     await sleep(this.timeout)
 
     await this._lookupAndConnect(info)
