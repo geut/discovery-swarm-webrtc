@@ -4,12 +4,13 @@
   "description": "webrtc-swarm but with a similar API to discovery-swarm",
   "main": "index.js",
   "bin": {
-    "discovery-signal-webrtc": "./bin/index.js"
+    "discovery-signal-webrtc": "bin/index.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "posttest": "npm run lint",
-    "lint": "standard"
+    "lint": "standard",
+    "start": "node bin/index.js"
   },
   "repository": {
     "type": "git",
