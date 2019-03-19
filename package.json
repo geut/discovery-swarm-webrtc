@@ -3,8 +3,13 @@
   "version": "1.2.0",
   "description": "webrtc-swarm but with a similar API to discovery-swarm",
   "main": "index.js",
+  "bin": {
+    "discovery-signal-webrtc": "./bin/index.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "posttest": "npm run lint",
+    "lint": "standard"
   },
   "repository": {
     "type": "git",
@@ -18,8 +23,16 @@
   },
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
+    "debug": "^4.1.1",
+    "lodash.shuffle": "^4.2.0",
+    "minimist": "^1.2.0",
     "pump": "^3.0.0",
-    "webrtc-swarm": "github:QwantResearch/webrtc-swarm#masq"
+    "simple-signal-client": "^2.0.2",
+    "socket.io": "^2.2.0",
+    "socket.io-client": "^2.2.0"
+  },
+  "devDependencies": {
+    "standard": "^12.0.1"
   },
   "publishConfig": {
     "access": "public"
