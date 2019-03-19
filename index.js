@@ -34,7 +34,7 @@ class DiscoverSwarmWebrtc extends EventEmitter {
 
     this.candidates = new Map()
 
-    this.attempts = {}
+    this.attempts = new Map()
 
     this.destroyed = false
 
@@ -165,16 +165,14 @@ class DiscoverSwarmWebrtc extends EventEmitter {
   _bindPeerEvents (peer, info) {
     peer.on('error', err => {
       debug('error', err)
-      peer.error = true
-      this.emit('error', err, info)
+      this.emit('connection-error', err, info)
     })
 
     peer.on('connect', () => {
       debug('connect', peer, info)
-      delete this.attempts[`${info.id}:${info.channel}`]
 
       if (!this.stream) {
-        this.emit('connection', peer, info)
+        this._handleConnection(peer, info)
         return
       }
 
@@ -189,13 +187,17 @@ class DiscoverSwarmWebrtc extends EventEmitter {
       this.delPeer(info)
       this.emit('connection-closed', peer, info)
 
-      if (peer.error) {
-        this._reconnect(info)
-      }
+      // TODO: We need to define when we want to reconnect
+      this._reconnect(info)
     })
   }
 
   _handshake (conn, info) {
+    this._handleConnection(conn, info)
+  }
+
+  _handleConnection (conn, info) {
+    this.attempts.delete(`${info.id}:${info.channel}`)
     this.emit('connection', conn, info)
   }
 
@@ -203,12 +205,20 @@ class DiscoverSwarmWebrtc extends EventEmitter {
   async _reconnect (info) {
     const id = `${info.id}:${info.channel}`
 
-    if (this.maxAttempts === -1 || this.attempts[id] === 0) {
+    let attempts = this.attempts.get(id)
+
+    if (this.maxAttempts === -1 || attempts === 0) {
       return
     }
 
-    if (this.maxAttempts !== Infinity && this.attempts[id] === undefined) {
-      this.attempts[id] = this.maxAttempts
+    if (this.maxAttempts !== Infinity && attempts === undefined) {
+      // init the attempts
+      attempts = this.maxAttempts
+    }
+
+    if (attempts !== undefined) {
+      attempts--
+      this.attempts.set(id, attempts)
     }
 
     this.emit('reconnecting', info)
@@ -216,10 +226,6 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     await sleep(this.timeout)
 
     await this._lookupAndConnect(info)
-
-    if (this.attempts[id] !== undefined) {
-      this.attempts[id]--
-    }
   }
 }
 

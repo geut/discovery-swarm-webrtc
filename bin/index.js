@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 const server = require('http').createServer()
 const io = require('socket.io')(server)
 
