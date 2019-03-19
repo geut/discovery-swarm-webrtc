@@ -3,21 +3,38 @@ webrtc-swarm but with a similar API to discovery-swarm
 
 This module provide a `stream` option to replicate across peers and a `join` method to connect to a channel.
 
+## Install
+
 ```
-$ npm install @geut/discovery-swarm-webrtc
+$ npm install @geut/discovery-swarm-webrtc@alpha.
 ```
 
 ## Usage
+
+### Server
+
+You can run your own signal server by running:
+
+```
+$ discovery-signal-webrtc --port=3300
+```
+
+#### Deploy to Heroku
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
+### Client
 
 ```javascript
 const swarm = require('@geut/discovery-swarm-webrtc')
 
 const sw = swarm({
   id: 'id',
+  urls: ['localhost:3300'],
   stream: () => feed.replicate()
 })
 
-sw.join(signalhub('channel-id', ['http://yourhub.com']))
+sw.join('topic')
 
 sw.on('connection', peer => {
   // connected
@@ -33,15 +50,15 @@ Creates a new Swarm. Options include:
 ```javascript
 {
   id: cuid(), // peer-id for user
+  urls: [string], // urls to your socket.io endpoints
   stream: stream, // stream to replicate across peers
+  simplePeerOpts: {}, // options to your simplePeer instances
 }
 ```
 
-#### `sw.join(hub, [opts])`
+#### `sw.join(topic)`
 
-Join a channel specified by [hub](https://github.com/mafintosh/signalhub) instance.
-
-The options are for the `webrtc-swarm` instance.
+Join a specific channel. We use behind it `simple-signal` + `simple-peer`.
 
 ### Events
 
@@ -52,6 +69,7 @@ Emitted when you've connected to a peer and are now initializing the connection'
 ``` js
 {
   id // the remote peer's peer-id.
+  channel // the channel
 }
 ```
 
@@ -62,7 +80,3 @@ Emitted when you have fully connected to another peer. Info is an object that co
 #### `sw.on('connection-closed', function(connection, info) { ... })`
 
 Emitted when you've disconnected from a peer. Info is an object that contains info about the connection.
-
-#### `sw.on('redundant-connection', function(connection, info) { ... })`
-
-Emitted when multiple connections are detected with a peer, and so one is going to be dropped (the `connection` given). Info is an object that contains info about the connection.
