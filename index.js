@@ -7,6 +7,8 @@ const debug = require('debug')('discovery-swarm-webrtc')
 
 const socketClustering = require('./lib/socket-clustering')
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 class DiscoverSwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
     super()
@@ -22,7 +24,17 @@ class DiscoverSwarmWebrtc extends EventEmitter {
 
     this.simplePeerOpts = opts.simplePeer
 
+    this.maxPeers = opts.maxPeers || 64
+
+    this.maxAttempts = opts.maxAttempts || Infinity
+
+    this.timeout = opts.timeout || 1000
+
     this.channels = new Map()
+
+    this.candidates = new Map()
+
+    this.attempts = {}
 
     this.destroyed = false
 
@@ -77,41 +89,18 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
   }
 
-  _initialize (opts = {}) {
+  _initialize () {
     const signal = this.signal
 
-    const maxPeers = opts.maxPeers || 64
-
     signal.on('discover', async ({ peers, channel }) => {
-      const connectedPeers = this.peers
-
-      if (connectedPeers.length >= maxPeers) {
+      if (this.peers.length >= this.maxPeers) {
         return
       }
 
-      // we select random candidates
-      let candidates = shuffle(peers.filter(id => !this.findPeer({ id, channel }) && id !== this.id))
+      // we do a random candidate list
+      this.candidates.set(channel, shuffle(peers.filter(id => id !== this.id)))
 
-      candidates = candidates.slice(0, maxPeers - candidates.length)
-
-      debug('candidates', candidates)
-
-      await Promise.all(candidates.map(async id => {
-        const info = { id, channel }
-
-        this.addPeer(info)
-
-        debug('connect', info)
-
-        try {
-          const { peer } = await this.signal.connect(info.id, { channel }, this.simplePeerOpts)
-          this._initializePeer(peer, info)
-        } catch (err) {
-          this.delPeer(info)
-          this.emit('connect-failed', err, info)
-          this.emit('error', err, info)
-        }
-      }))
+      await this._lookupAndConnect({ channel })
     })
 
     signal.on('request', async (request) => {
@@ -134,14 +123,54 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     })
   }
 
+  async _lookupAndConnect ({ id, channel }) {
+    const _connect = async id => {
+      const info = { id, channel }
+
+      this.addPeer(info)
+
+      debug('connect', info)
+
+      try {
+        const { peer } = await this.signal.connect(info.id, { channel }, this.simplePeerOpts)
+        this._initializePeer(peer, info)
+      } catch (err) {
+        this.delPeer(info)
+        this.emit('connect-failed', err, info)
+        this.emit('error', err, info)
+      }
+    }
+
+    if (id) {
+      if (this.findPeer({ id, channel })) {
+        return null
+      }
+
+      return _connect(id)
+    }
+
+    let candidates = this
+      .candidates
+      .get(channel)
+      .filter(id => !this.findPeer({ id, channel }))
+
+    candidates = candidates.slice(0, this.maxPeers - candidates.length)
+
+    debug('candidates', candidates)
+
+    return Promise.all(candidates.map(_connect))
+  }
+
   _initializePeer (peer, info) {
     peer.on('error', err => {
       debug('error', err)
+      peer.error = true
       this.emit('error', err, info)
     })
 
     peer.on('connect', () => {
       debug('connect', peer, info)
+      delete this.attempts[`${info.id}:${info.channel}`]
 
       if (!this.stream) {
         this.emit('connection', peer, info)
@@ -158,11 +187,36 @@ class DiscoverSwarmWebrtc extends EventEmitter {
       debug('close', info)
       this.delPeer(info)
       this.emit('connection-closed', peer, info)
+
+      if (peer.error) {
+        this._reconnect(info)
+      }
     })
   }
 
   _handshake (conn, info) {
     this.emit('connection', conn, info)
+  }
+
+  // experimental
+  async _reconnect (info) {
+    const id = `${info.id}:${info.channel}`
+
+    if (this.maxAttempts === -1 || this.attempts[id] === 0) {
+      return
+    }
+
+    if (this.maxAttempts !== Infinity && this.attempts[id] === undefined) {
+      this.attempts[id] = this.maxAttempts
+    }
+
+    await sleep(this.timeout)
+
+    await this._lookupAndConnect(info)
+
+    if (this.attempts[id] !== undefined) {
+      this.attempts[id]--
+    }
   }
 }
 
