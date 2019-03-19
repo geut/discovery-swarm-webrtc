@@ -110,36 +110,12 @@ class DiscoverSwarmWebrtc extends EventEmitter {
 
       debug('request', info)
 
-      this.addPeer(info)
-
-      try {
-        const { peer } = await request.accept({}, this.simplePeerOpts) // Accept the incoming request
-        this._initializePeer(peer, info)
-      } catch (err) {
-        this.delPeer(info)
-        this.emit('connect-failed', err, info)
-        this.emit('error', err, info)
-      }
+      await this._createPeer({ request, info })
     })
   }
 
   async _lookupAndConnect ({ id, channel }) {
-    const _connect = async id => {
-      const info = { id, channel }
-
-      this.addPeer(info)
-
-      debug('connect', info)
-
-      try {
-        const { peer } = await this.signal.connect(info.id, { channel }, this.simplePeerOpts)
-        this._initializePeer(peer, info)
-      } catch (err) {
-        this.delPeer(info)
-        this.emit('connect-failed', err, info)
-        this.emit('error', err, info)
-      }
-    }
+    const _connect = async id => this._createPeer({ info: { id, channel } })
 
     if (id) {
       if (this.findPeer({ id, channel })) {
@@ -161,7 +137,32 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     return Promise.all(candidates.map(_connect))
   }
 
-  _initializePeer (peer, info) {
+  async _createPeer ({ request, info }) {
+    this.addPeer(info)
+
+    debug(request ? 'request' : 'connect', info)
+
+    try {
+      let result
+
+      if (request) {
+        result = await request.accept({}, this.simplePeerOpts) // Accept the incoming request
+      } else {
+        result = await this.signal.connect(info.id, { channel: info.channel }, this.simplePeerOpts)
+      }
+
+      const { peer } = result
+      peer.id = info.id
+
+      this._bindPeerEvents(peer, info)
+    } catch (err) {
+      this.delPeer(info)
+      this.emit('connect-failed', err, info)
+      this.emit('error', err, info)
+    }
+  }
+
+  _bindPeerEvents (peer, info) {
     peer.on('error', err => {
       debug('error', err)
       peer.error = true

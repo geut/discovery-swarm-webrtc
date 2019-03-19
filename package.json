@@ -26,6 +26,7 @@
     "debug": "^4.1.1",
     "lodash.shuffle": "^4.2.0",
     "minimist": "^1.2.0",
+    "multiplex": "^6.7.0",
     "pump": "^3.0.0",
     "simple-signal-client": "^2.0.2",
     "socket.io": "^2.2.0",
