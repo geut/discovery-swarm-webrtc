@@ -37,7 +37,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const channel = {
       peers: new Map(),
       swarm: createSwarm(hub, Object.assign({}, {
-        uuid: this.id
+        uuid: this.id.toString('hex')
       }, opts))
     }
 
@@ -50,7 +50,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     channel.swarm.on('disconnect', (peer, id) => {
-      const info = { id, channel: channelName, type: 'webrtc' }
+      const info = { id, channel: channelName }
       channel.peers.delete(id)
       this.emit('connection-closed', peer, info)
     })
