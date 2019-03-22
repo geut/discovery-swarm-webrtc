@@ -34,6 +34,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.candidates = new Map()
 
+    this.destroyed = false
+
     this.signal = new SimpleSignalClient(this.socket)
 
     this._initialize(opts)
@@ -101,6 +103,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       if (cb) process.nextTick(cb)
       return
     }
+
     this.destroyed = true
 
     if (cb) this.once('close', cb)
@@ -238,13 +241,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _handleConnection (conn, info) {
-    this.attempts.delete(`${info.id}:${info.channel}`)
     this.emit('connection', conn, info)
   }
 
   // TODO: this is experimental, is going to change
-  async _reconnect () {
-    return this._lookupAndConnect()
+  async _reconnect (info) {
+    return this._lookupAndConnect({ channel: info.channel })
   }
 }
 
