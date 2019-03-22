@@ -34,6 +34,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.candidates = new Map()
 
+    this.destroyed = false
+
     this.signal = new SimpleSignalClient(this.socket)
 
     this._initialize(opts)
@@ -69,26 +71,55 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   join (channel) {
-    if (this.channels.has(channel)) {
+    // Account for buffers being passed in
+    const channelString = channel.toString('hex')
+    if (this.channels.has(channelString)) {
       return
     }
 
-    this.channels.set(channel, new Map())
+    this.channels.set(channelString, new Map())
 
     if (this.socket.connected) {
-      this.signal.discover({ id: this.id, channel })
+      this.signal.discover({ id: this.id, channel: channelString })
+    }
+  }
+
+  leave (channel) {
+    // Account for buffers being passed in
+    const channelString = channel.toString('hex')
+    const peers = this.channels.get(channelString)
+    if (!peers) return
+
+    for (let peer of peers) {
+      // Destroy the connection, should emit close and remove it from the list
+      peer.destroy()
+    }
+
+    this.channels.delete(channelString)
+  }
+
+  close (cb) {
+    if (this.destroyed) {
+      if (cb) process.nextTick(cb)
       return
     }
 
-    this.socket.on('connect', () => {
-      this.signal.discover({ id: this.id, channel })
-    })
+    this.destroyed = true
+
+    if (cb) this.once('close', cb)
+
+    this.signal.destroy()
+
+    process.nextTick(() => this.emit('close'))
   }
 
   _initialize () {
     const signal = this.signal
 
     signal.on('discover', async ({ peers, channel }) => {
+      // Ignore discovered channels we left
+      if (!this.channels.has(channel)) return
+
       if (this.peers.length >= this.maxPeers) {
         return
       }
@@ -102,11 +133,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('request', async (request) => {
       const { initiator: id, metadata: { channel } } = request
 
+      // Ignore requests from channels we're not a part of
+      if (!this.channels.has(channel)) return
+
       const info = { id, channel }
 
       debug('request', info)
 
       await this._createPeer({ request, info })
+    })
+
+    this.socket.on('connect', () => {
+      for (let channel of this.channels.keys()) {
+        this.signal.discover({ id: this.id, channel })
+      }
     })
 
     this.socket.on('reconnect_error', error => {
@@ -201,13 +241,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _handleConnection (conn, info) {
-    this.attempts.delete(`${info.id}:${info.channel}`)
     this.emit('connection', conn, info)
   }
 
   // TODO: this is experimental, is going to change
-  async _reconnect () {
-    return this._lookupAndConnect()
+  async _reconnect (info) {
+    return this._lookupAndConnect({ channel: info.channel })
   }
 }
 
