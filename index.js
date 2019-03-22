@@ -69,26 +69,54 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   join (channel) {
-    if (this.channels.has(channel)) {
+    // Account for buffers being passed in
+    const channelString = channel.toString('hex')
+    if (this.channels.has(channelString)) {
       return
     }
 
-    this.channels.set(channel, new Map())
+    this.channels.set(channelString, new Map())
 
     if (this.socket.connected) {
-      this.signal.discover({ id: this.id, channel })
-      return
+      this.signal.discover({ id: this.id, channel: channelString })
+    }
+  }
+
+  leave (channel) {
+    // Account for buffers being passed in
+    const channelString = channel.toString('hex')
+    const peers = this.channels.get(channelString)
+    if (!peers) return
+
+    for (let peer of peers) {
+      // Destroy the connection, should emit close and remove it from the list
+      peer.destroy()
     }
 
-    this.socket.on('connect', () => {
-      this.signal.discover({ id: this.id, channel })
-    })
+    this.channels.delete(channelString)
+  }
+
+  close (cb) {
+    if (this.destroyed) {
+      if (cb) process.nextTick(cb)
+      return
+    }
+    this.destroyed = true
+
+    if (cb) this.once('close', cb)
+
+    this.signal.destroy()
+
+    process.nextTick(() => this.emit('close'))
   }
 
   _initialize () {
     const signal = this.signal
 
     signal.on('discover', async ({ peers, channel }) => {
+      // Ignore discovered channels we left
+      if (!this.channels.has(channel)) return
+
       if (this.peers.length >= this.maxPeers) {
         return
       }
@@ -102,11 +130,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('request', async (request) => {
       const { initiator: id, metadata: { channel } } = request
 
+      // Ignore requests from channels we're not a part of
+      if (!this.channels.has(channel)) return
+
       const info = { id, channel }
 
       debug('request', info)
 
       await this._createPeer({ request, info })
+    })
+
+    this.socket.on('connect', () => {
+      for (let channel of this.channels.keys()) {
+        this.signal.discover({ id: this.id, channel })
+      }
     })
 
     this.socket.on('reconnect_error', error => {
