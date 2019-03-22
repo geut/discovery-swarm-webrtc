@@ -3,40 +3,36 @@ const pump = require('pump')
 const crypto = require('crypto')
 const SimpleSignalClient = require('simple-signal-client')
 const shuffle = require('lodash.shuffle')
+const assert = require('assert')
 const debug = require('debug')('discovery-swarm-webrtc')
+const parseUrl = require('socket.io-client/lib/url')
 
-const socketClustering = require('./lib/socket-clustering')
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-
-class DiscoverSwarmWebrtc extends EventEmitter {
+class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
     super()
     debug('opts', opts)
 
-    this.socket = socketClustering({ urls: opts.urls, createSocket: opts.socket })
+    assert(Array.isArray(opts.urls) && opts.urls.length > 0, 'An array of urls is required.')
+
+    this.urls = opts.urls.map(url => parseUrl(url).source)
+
+    if (opts.socket) {
+      this.socket = opts.socket(this.urls[0])
+    } else {
+      this.socket = require('socket.io-client')(this.urls[0])
+    }
 
     this.stream = opts.stream
 
     this.id = opts.id || crypto.randomBytes(12).toString('hex')
 
-    this.multiplexer = opts.multiplexer || false
-
     this.simplePeerOpts = opts.simplePeer
 
     this.maxPeers = opts.maxPeers || 64
 
-    this.maxAttempts = opts.maxAttempts || Infinity
-
-    this.timeout = opts.timeout || 1000
-
     this.channels = new Map()
 
     this.candidates = new Map()
-
-    this.attempts = new Map()
-
-    this.destroyed = false
 
     this.signal = new SimpleSignalClient(this.socket)
 
@@ -111,6 +107,14 @@ class DiscoverSwarmWebrtc extends EventEmitter {
       debug('request', info)
 
       await this._createPeer({ request, info })
+    })
+
+    this.socket.on('reconnect_error', error => {
+      this.emit('socket:reconnect_error', error)
+      const lastUrl = this.socket.io.uri
+      const lastIdx = this.urls.indexOf(lastUrl)
+      const nextIdx = lastIdx === (this.urls.length - 1) ? 0 : lastIdx + 1
+      this.socket.io.uri = this.urls[nextIdx]
     })
   }
 
@@ -201,32 +205,10 @@ class DiscoverSwarmWebrtc extends EventEmitter {
     this.emit('connection', conn, info)
   }
 
-  // experimental
-  async _reconnect (info) {
-    const id = `${info.id}:${info.channel}`
-
-    let attempts = this.attempts.get(id)
-
-    if (this.maxAttempts === -1 || attempts === 0) {
-      return
-    }
-
-    if (this.maxAttempts !== Infinity && attempts === undefined) {
-      // init the attempts
-      attempts = this.maxAttempts
-    }
-
-    if (attempts !== undefined) {
-      attempts--
-      this.attempts.set(id, attempts)
-    }
-
-    this.emit('reconnecting', info)
-
-    await sleep(this.timeout)
-
-    await this._lookupAndConnect(info)
+  // TODO: this is experimental, is going to change
+  async _reconnect () {
+    return this._lookupAndConnect()
   }
 }
 
-module.exports = (...args) => new DiscoverSwarmWebrtc(...args)
+module.exports = (...args) => new DiscoverySwarmWebrtc(...args)
