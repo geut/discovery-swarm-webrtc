@@ -52,7 +52,7 @@ Creates a new Swarm. Options include:
   id: cuid(), // peer-id for user
   urls: [string], // urls to your socket.io endpoints
   stream: stream, // stream to replicate across peers
-  simplePeerOpts: {}, // options to your simplePeer instances
+  simplePeer: {}, // options to your simplePeer instances
 }
 ```
 
