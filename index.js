@@ -194,10 +194,15 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       let result
 
       const oldPeer = this.findPeer(info)
-      if (oldPeer && !oldPeer.connecting && !oldPeer.destroyed) {
-        this.emit('redundant-connection', oldPeer, info)
-        oldPeer.destroy()
-        debug('redundant-connection', oldPeer, info)
+      if (oldPeer) {
+        if (!oldPeer.connecting && !oldPeer.destroyed) {
+          this.emit('redundant-connection', oldPeer, info)
+          oldPeer.destroy()
+          debug('redundant-connection', oldPeer, info)
+        } else if (oldPeer.connecting) {
+          // there is a peer with the same id already trying to connecting
+          return
+        }
       }
 
       // we save the peer just to be sure that is connecting and trying to get a peer instance
