@@ -63,15 +63,19 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   addPeer (info, peer) {
     if (!peer) {
-      peer = Object.assign({}, info);
+      peer = Object.assign({}, info)
     }
-    peer.connecting = true;
+    peer.connecting = true
     this.channels.get(info.channel).set(info.id, peer)
     return peer
   }
 
   delPeer ({ id, channel }) {
-    this.channels.get(channel).delete(id)
+    const peers = this.channels.get(channel)
+
+    if (peers) {
+      peers.delete(id)
+    }
   }
 
   join (channel) {
@@ -243,7 +247,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       const conn = this.stream(info)
-      conn.connecting = peer.connecting;
+      conn.connecting = peer.connecting
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
       pump(peer, conn, peer)
@@ -265,7 +269,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   _handleConnection (conn, info) {
     this.emit('connection', conn, info)
-    conn.connecting = false;
+    conn.connecting = false
   }
 
   // TODO: this is experimental, is going to change
