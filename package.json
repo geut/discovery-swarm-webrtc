@@ -3,6 +3,12 @@
   "version": "2.0.0-alpha.8",
   "description": "webrtc-swarm but with a similar API to discovery-swarm",
   "main": "index.js",
+  "files": [
+    "lib",
+    "bin",
+    "index.js",
+    "server.js"
+  ],
   "bin": {
     "discovery-signal-webrtc": "bin/index.js"
   },
