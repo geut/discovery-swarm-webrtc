@@ -94,7 +94,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const peers = this.channels.get(channelString)
     if (!peers) return
 
-    for (let peer of peers) {
+    for (let peer of peers.values()) {
       // Destroy the connection, should emit close and remove it from the list
       peer.destroy && peer.destroy()
     }
