@@ -1,11 +1,12 @@
 const { EventEmitter } = require('events')
 const pump = require('pump')
 const crypto = require('crypto')
-const SimpleSignalClient = require('simple-signal-client')
 const shuffle = require('lodash.shuffle')
 const assert = require('assert')
 const debug = require('debug')('discovery-swarm-webrtc')
 const parseUrl = require('socket.io-client/lib/url')
+
+const SignalClient = require('./lib/signal-client')
 
 class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
@@ -36,7 +37,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.destroyed = false
 
-    this.signal = new SimpleSignalClient(this.socket)
+    this.signal = new SignalClient(this.socket)
 
     this._initialize(opts)
   }
@@ -92,11 +93,19 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
   }
 
-  leave (channel) {
+  async leave (channel) {
     // Account for buffers being passed in
     const channelString = channel.toString('hex')
+
     const peers = this.channels.get(channelString)
+
     if (!peers) return
+
+    // we need to notify to the signal that we our leaving
+    await this.signal.leave({ id: this.id, channel: channelString })
+
+    // we need to remove the candidates for this channel
+    this.candidates.delete(channelString)
 
     for (let peer of peers.values()) {
       // Destroy the connection, should emit close and remove it from the list
@@ -135,7 +144,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       // we do a random candidate list
-      this.candidates.set(channel, shuffle(peers.filter(id => id !== this.id)))
+      await this._updateCandidates({ channel }, peers)
 
       await this._lookupAndConnect({ channel })
     })
@@ -179,11 +188,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       return _connect(id)
     }
 
-    let candidates = this
-      .candidates
-      .get(channel)
-      .filter(id => !this.findPeer({ id, channel }))
+    let candidates = this.candidates.get(channel)
 
+    if (!candidates) {
+      return
+    }
+
+    // remove peers already connected
+    candidates = candidates.filter(id => !this.findPeer({ id, channel }))
+
+    // select peers based on the maximum size of peers allowed
     candidates = candidates.slice(0, this.maxPeers - candidates.length)
 
     debug('candidates', candidates)
@@ -274,7 +288,21 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   // TODO: this is experimental, is going to change
   async _reconnect (info) {
-    return this._lookupAndConnect({ channel: info.channel })
+    try {
+      await this._updateCandidates(info)
+      return this._lookupAndConnect({ channel: info.channel })
+    } catch (err) {
+      this.emit('reconnection-error', err, info)
+    }
+  }
+
+  async _updateCandidates (info, peers) {
+    if (!peers) {
+      const result = await this.signal.candidates({ channel: info.channel })
+      peers = result.peers
+    }
+
+    this.candidates.set(info.channel, shuffle(peers.filter(id => id !== this.id)))
   }
 }
 
