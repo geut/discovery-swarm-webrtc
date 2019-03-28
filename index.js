@@ -62,7 +62,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   addPeer (info, peer) {
-    this.channels.get(info.channel).set(info.id, peer || info)
+    if (!peer) {
+      peer = Object.assign({}, info);
+    }
+    peer.connecting = true;
+    this.channels.get(info.channel).set(info.id, peer)
     return peer
   }
 
@@ -92,7 +96,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     for (let peer of peers) {
       // Destroy the connection, should emit close and remove it from the list
-      peer.destroy()
+      peer.destroy && peer.destroy()
     }
 
     this.channels.delete(channelString)
@@ -117,6 +121,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const signal = this.signal
 
     signal.on('discover', async ({ peers, channel }) => {
+      debug('discover', { peers, channel })
+
       // Ignore discovered channels we left
       if (!this.channels.has(channel)) return
 
@@ -182,12 +188,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _createPeer ({ request, info }) {
-    this.addPeer(info)
-
     debug(request ? 'request' : 'connect', info)
 
     try {
       let result
+
+      const oldPeer = this.findPeer(info)
+      if (oldPeer && !oldPeer.connecting && !oldPeer.destroyed) {
+        this.emit('redundant-connection', oldPeer, info)
+        oldPeer.destroy()
+        debug('redundant-connection', oldPeer, info)
+      }
+
+      // we save the peer just to be sure that is connecting and trying to get a peer instance
+      this.addPeer(info)
 
       if (request) {
         result = await request.accept({}, this.simplePeerOpts) // Accept the incoming request
@@ -197,6 +211,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       const { peer } = result
       peer.id = info.id
+
+      // we got a peer instance, we update the peer list
+      this.addPeer(info, peer)
 
       this._bindPeerEvents(peer, info)
     } catch (err) {
@@ -221,6 +238,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       const conn = this.stream(info)
+      conn.connecting = peer.connecting;
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
       pump(peer, conn, peer)
@@ -242,6 +260,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   _handleConnection (conn, info) {
     this.emit('connection', conn, info)
+    conn.connecting = false;
   }
 
   // TODO: this is experimental, is going to change
