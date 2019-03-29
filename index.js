@@ -3,9 +3,9 @@ const pump = require('pump')
 const crypto = require('crypto')
 const shuffle = require('lodash.shuffle')
 const assert = require('assert')
-const debug = require('debug')('discovery-swarm-webrtc')
 const parseUrl = require('socket.io-client/lib/url')
 
+const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 
 class DiscoverySwarmWebrtc extends EventEmitter {
@@ -32,6 +32,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.maxPeers = opts.maxPeers || 64
 
     this.channels = new Map()
+
+    this.closedChannels = new Set()
 
     this.candidates = new Map()
 
@@ -67,6 +69,15 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       peer = Object.assign({}, info)
     }
     peer.connecting = true
+
+    // race condition: if the connection already was created and we leave from the channel or close de swarm
+    if (this.destroyed || this.closedChannels.has(info.channel)) {
+      if (peer.destroy) {
+        peer.destroy()
+      }
+      return
+    }
+
     this.channels.get(info.channel).set(info.id, peer)
     return peer
   }
@@ -87,31 +98,33 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
 
     this.channels.set(channelString, new Map())
+    this.closedChannels.delete(channelString)
 
     if (this.socket.connected) {
       this.signal.discover({ id: this.id, channel: channelString })
     }
   }
 
-  async leave (channel) {
+  leave (channel) {
     // Account for buffers being passed in
     const channelString = channel.toString('hex')
 
-    const peers = this.channels.get(channelString)
+    let peers = this.channels.get(channelString)
 
     if (!peers) return
 
-    // we need to notify to the signal that we our leaving
-    await this.signal.leave({ id: this.id, channel: channelString })
+    this.closedChannels.add(channelString)
 
-    // we need to remove the candidates for this channel
-    this.candidates.delete(channelString)
+    // we need to notify to the signal that we our leaving
+    this.signal.leave({ id: this.id, channel: channelString }).then(() => {}).catch(() => {})
 
     for (let peer of peers.values()) {
       // Destroy the connection, should emit close and remove it from the list
       peer.destroy && peer.destroy()
     }
 
+    // we need to remove the candidates for this channel
+    this.candidates.delete(channelString)
     this.channels.delete(channelString)
   }
 
