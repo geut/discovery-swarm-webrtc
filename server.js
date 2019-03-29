@@ -66,5 +66,5 @@ module.exports = function createServer ({ io }) {
     return request.forward()
   })
 
-  return signalServer
+  return { signalServer, channels }
 }
