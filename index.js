@@ -211,7 +211,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     candidates = candidates.filter(id => !this.findPeer({ id, channel }))
 
     // select peers based on the maximum size of peers allowed
-    candidates = candidates.slice(0, this.maxPeers - candidates.length)
+    const peers = this.channels.get(channel)
+    const maxPeers = this.maxPeers - peers ? peers.size : 0
+    candidates = candidates.slice(0, maxPeers + 1)
 
     debug('candidates', candidates)
 
