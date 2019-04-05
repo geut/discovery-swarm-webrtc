@@ -16,12 +16,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     assert(Array.isArray(opts.urls) && opts.urls.length > 0, 'An array of urls is required.')
 
+    // DBDB Note that the function below : parseUrl has no error checking
+    // and will happily return garbage if you give it a badly formed URL (e.g. http: missing).
+    // No checking has been done in the URL up to this point so if the user configures 
+    // something invalid, we'll blunder straight on here and attempt to connect
+    // to the bad string parseUrl returned.
     this.urls = opts.urls.map(url => parseUrl(url).source)
 
     if (opts.socket) {
       this.socket = opts.socket(this.urls[0])
     } else {
-      this.socket = require('socket.io-client')(this.urls[0])
+      let io = require('socket.io-client')
+      let connect_url = this.urls[0]
+      debug('Attempting to connect to url:', connect_url)
+      this.socket = io.connect(connect_url)
     }
 
     this.stream = opts.stream
@@ -42,6 +50,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.signal = new SignalClient(this.socket)
 
+    // DBDB note that it is important that _initialize() be called in-line here
+    // because it registers event handlers on the socket we created above
+    // and that needs to be done before the socket has a chance to connect
+    // otherwise we may miss events
     this._initialize(opts)
   }
 
@@ -176,7 +188,23 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
     })
 
+    this.socket.on('error', error => {
+      debug('Error on socket to:', this.socket.io.uri)
+      this.emit('socket:error', error)
+    })
+
+    this.socket.on('connect_error', error => {
+      debug('Failed to connect to:', this.socket.io.uri)
+      this.emit('socket:connect_error', error)
+    })
+
+    this.socket.on('reconnect_failed', error => {
+      debug('Failed after reconnect attempts to:', this.socket.io.uri)
+      this.emit('socket:reconnect_failed', error)
+    })
+
     this.socket.on('reconnect_error', error => {
+      debug('Failed to reconnect to:',this.socket.io.uri)
       this.emit('socket:reconnect_error', error)
       const lastUrl = this.socket.io.uri
       const lastIdx = this.urls.indexOf(lastUrl)
