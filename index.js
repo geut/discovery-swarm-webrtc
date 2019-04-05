@@ -143,6 +143,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       // Ignore discovered channels we left
       if (!this.channels.has(channel)) return
 
+      // Ignore if the channel was closed
+      if (this.closedChannels.has(channel)) return
+
       if (this.peers.length >= this.maxPeers) {
         return
       }
@@ -158,6 +161,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       // Ignore requests from channels we're not a part of
       if (!this.channels.has(channel)) return
+
+      // Ignore if the channel was closed
+      if (this.closedChannels.has(channel)) return
 
       const info = { id, channel }
 
@@ -180,6 +186,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _lookupAndConnect ({ id, channel }) {
+    // Ignore if the channel was closed
+    if (this.closedChannels.has(channel)) return
+
     const _connect = async id => this._createPeer({ info: { id, channel } })
 
     if (id) {
@@ -270,7 +279,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     peer.on('connect', () => {
-      debug('connect', peer, info)
+      debug('connect', { peer, info })
       delete peer.connectingAt
 
       // race condition: if the connection already was created and we leave from the channel or close de swarm
@@ -291,13 +300,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     peer.on('close', () => {
-      debug('close', info)
+      debug('close', { peer, info })
 
       const savedPeer = this.findPeer(info)
 
       if (savedPeer !== peer) {
         // Old connection, we already have a new one.
-        debug('closing old-connection', savedPeer, peer)
+        debug('closing old-connection', { savedPeer, peer })
         return
       }
 
@@ -320,6 +329,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   // TODO: this is experimental, is going to change
   async _reconnect (info) {
+    // Ignore if the channel was closed
+    if (this.closedChannels.has(info.channel)) return
+
     try {
       await this._updateCandidates(info)
       return this._lookupAndConnect({ channel: info.channel })
