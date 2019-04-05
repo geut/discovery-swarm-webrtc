@@ -4,6 +4,7 @@ const crypto = require('crypto')
 const shuffle = require('lodash.shuffle')
 const assert = require('assert')
 const parseUrl = require('socket.io-client/lib/url')
+const timestamp = require('monotonic-timestamp')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
@@ -64,21 +65,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     return item.get(id)
   }
 
-  addPeer (info, peer) {
-    if (!peer) {
-      peer = Object.assign({}, info)
-    }
-    peer.connecting = true
-
-    // race condition: if the connection already was created and we leave from the channel or close de swarm
-    if (this.destroyed || this.closedChannels.has(info.channel)) {
-      if (peer.destroy) {
-        peer.destroy()
-      }
-      return
-    }
+  addPeer (info, peer = {}) {
+    peer = Object.assign(peer, info)
 
     this.channels.get(info.channel).set(info.id, peer)
+
     return peer
   }
 
@@ -170,8 +161,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       const info = { id, channel }
 
-      debug('request', info)
-
       await this._createPeer({ request, info })
     })
 
@@ -221,40 +210,53 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _createPeer ({ request, info }) {
-    debug(request ? 'request' : 'connect', info)
+    debug(`createPeer from ${request ? 'request' : 'connect'}`, { info, request })
 
     try {
       let result
 
       const oldPeer = this.findPeer(info)
+
       if (oldPeer) {
-        if (!oldPeer.connecting && !oldPeer.destroyed) {
+        if (oldPeer && !oldPeer.connectingAt && !oldPeer.destroyed) {
           this.emit('redundant-connection', oldPeer, info)
-          oldPeer.destroy()
           debug('redundant-connection', oldPeer, info)
-        } else if (oldPeer.connecting) {
-          // there is a peer with the same id already trying to connecting
-          return
+          oldPeer.destroy()
+        } else if (!!request && oldPeer.connectingAt) {
+          // tie-breaker connection: When both peer runs a signal.connect.
+          const { connectingAt: requestConnectingAt } = request.metadata
+
+          // oldPeer wins
+          if (requestConnectingAt > oldPeer.connectingAt) {
+            debug(`tie-breaker wins localPeer: ${this.id}`)
+            request.reject({ reason: 'tie-breaker' })
+            return
+          }
         }
       }
 
       // we save the peer just to be sure that is connecting and trying to get a peer instance
+      info.connectingAt = timestamp()
       this.addPeer(info)
 
       if (request) {
         result = await request.accept({}, this.simplePeerOpts) // Accept the incoming request
       } else {
-        result = await this.signal.connect(info.id, { channel: info.channel }, this.simplePeerOpts)
+        result = await this.signal.connect(info.id, { channel: info.channel, connectingAt: info.connectingAt }, this.simplePeerOpts)
       }
 
       const { peer } = result
-      peer.id = info.id
 
       // we got a peer instance, we update the peer list
       this.addPeer(info, peer)
 
       this._bindPeerEvents(peer, info)
     } catch (err) {
+      if (err.metadata && err.metadata.reason === 'tie-breaker') {
+        debug(`tie-breaker wins remotePeer: ${info.id}`)
+        return
+      }
+
       this.delPeer(info)
       this.emit('connect-failed', err, info)
       this.emit('error', err, info)
@@ -269,6 +271,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     peer.on('connect', () => {
       debug('connect', peer, info)
+      delete peer.connectingAt
+
+      // race condition: if the connection already was created and we leave from the channel or close de swarm
+      if (this.closedChannels.has(info.channel)) {
+        peer.destroy()
+        return
+      }
 
       if (!this.stream) {
         this._handleConnection(peer, info)
@@ -276,7 +285,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       const conn = this.stream(info)
-      conn.connecting = peer.connecting
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
       pump(peer, conn, peer)
@@ -284,7 +292,17 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     peer.on('close', () => {
       debug('close', info)
+
+      const savedPeer = this.findPeer(info)
+
+      if (savedPeer !== peer) {
+        // Old connection, we already have a new one.
+        debug('closing old-connection', savedPeer, peer)
+        return
+      }
+
       this.delPeer(info)
+
       this.emit('connection-closed', peer, info)
 
       // TODO: We need to define when we want to reconnect
@@ -298,7 +316,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   _handleConnection (conn, info) {
     this.emit('connection', conn, info)
-    conn.connecting = false
   }
 
   // TODO: this is experimental, is going to change
