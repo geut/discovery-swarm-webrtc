@@ -3,6 +3,16 @@ webrtc-swarm but with a similar API to discovery-swarm
 
 This module provide a `stream` option to replicate across peers and a `join` method to connect to a channel.
 
+## Running the Signal Server
+
+```
+git clone git@github.com:wirelineio/discovery-swarm-webrtc.git
+cd discovery-swarm-webrtc
+git checkout new-webrtc-swarm
+npm install
+npm start
+```
+
 ## Install
 
 ```
