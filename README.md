@@ -6,11 +6,11 @@ This module provide a `stream` option to replicate across peers and a `join` met
 ## Running the Signal Server
 
 ```
-git clone git@github.com:wirelineio/discovery-swarm-webrtc.git
-cd discovery-swarm-webrtc
-git checkout new-webrtc-swarm
-npm install
-npm start
+$ git clone git@github.com:wirelineio/discovery-swarm-webrtc.git
+$ cd discovery-swarm-webrtc
+$ git checkout new-webrtc-swarm
+$ yarn
+$ yarn start
 ```
 
 ## Install
