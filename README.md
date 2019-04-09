@@ -16,7 +16,7 @@ npm start
 ## Install
 
 ```
-$ npm install @geut/discovery-swarm-webrtc@alpha.
+$ npm install @geut/discovery-swarm-webrtc@alpha
 ```
 
 ## Usage
