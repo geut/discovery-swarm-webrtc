@@ -1,7 +1,5 @@
 # discovery-swarm-webrtc
-webrtc-swarm but with a similar API to discovery-swarm
-
-This module provide a `stream` option to replicate across peers and a `join` method to connect to a channel.
+A swarm-based implementation of the [simple-server](https://github.com/t-mullen/simple-signal) signal service, compatible with the [simple-peer](https://github.com/feross/simple-peer) WebRTC wrapper.
 
 ## Running the Signal Server
 
