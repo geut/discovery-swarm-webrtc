@@ -170,6 +170,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       await this._createPeer({ request, info })
     })
 
+    signal.on('info', data => this.emit('info', data))
+
     this.socket.on('connect', () => {
       for (let channel of this.channels.keys()) {
         this.signal.discover({ id: this.id, channel })
