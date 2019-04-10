@@ -36,6 +36,7 @@ class SignalSwarmServer extends SignalServer {
         const peerId = channel.get(id)
         if (peerId && channel.delete(id)) {
           debug(`disconnect: ${peerId} channel: ${channelName}`)
+          this.emit('peer:leave', { id, channel: channelName, peerId })
         }
       })
     })
@@ -67,6 +68,7 @@ class SignalSwarmServer extends SignalServer {
       const peerId = channel.get(id)
       if (peerId && channel.delete(id)) {
         debug(`leave: ${peerId} channel: ${channelName}`)
+        this.emit('peer:leave', { id, channel: channelName, peerId })
       }
 
       return request.forward()
