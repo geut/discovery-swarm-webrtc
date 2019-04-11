@@ -45,7 +45,15 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._initialize(opts)
   }
 
-  get peers () {
+  peers (channelName) {
+    if (channelName) {
+      const channel = this.channels.get(channelName)
+      if (channel) {
+        return Array.from(channel.values())
+      }
+      return []
+    }
+
     let peers = []
 
     for (const channel of this.channels.values()) {
@@ -146,7 +154,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       // Ignore if the channel was closed
       if (this.closedChannels.has(channel)) return
 
-      if (this.peers.length >= this.maxPeers) {
+      if (this.peers(channel).length >= this.maxPeers) {
         return
       }
 
