@@ -40,7 +40,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.destroyed = false
 
-    this.signal = new SignalClient(this.socket)
+    this.signal = new SignalClient(this.socket, this);
 
     this._initialize(opts)
   }
@@ -138,6 +138,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const signal = this.signal
 
     signal.on('discover', async ({ peers, channel }) => {
+      this.emit('signal.discover');
+
       debug('discover', { peers, channel })
 
       // Ignore discovered channels we left
@@ -157,6 +159,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     signal.on('request', async (request) => {
+      this.emit('signal.request');
+
       const { initiator: id, metadata: { channel } } = request
 
       // Ignore requests from channels we're not a part of
