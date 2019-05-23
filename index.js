@@ -40,7 +40,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.destroyed = false
 
-    this.signal = new SignalClient(this.socket)
+    this.signal = new SignalClient(this.socket, { connectTimeout: opts.connectTimeout })
 
     this._initialize(opts)
   }

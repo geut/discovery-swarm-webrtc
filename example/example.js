@@ -9,4 +9,8 @@ sw.on('connection', (peer, info) => {
   console.log('new connection', info)
 })
 
+sw.on('error', (err, info) => {
+  console.log(err)
+})
+
 sw.join('test')
