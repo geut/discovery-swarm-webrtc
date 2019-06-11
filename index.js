@@ -45,6 +45,18 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._initialize(opts)
   }
 
+  get connecting () {
+    return this.peers().filter(peer => peer.connectingAt !== undefined).length
+  }
+
+  get connected () {
+    return this.peers().filter(peer => peer.connectingAt === undefined).length
+  }
+
+  listen () {
+    // Empty method to respect the API of discovery-swarm
+  }
+
   peers (channelName) {
     if (channelName) {
       const channel = this.channels.get(channelName)
