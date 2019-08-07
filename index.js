@@ -5,9 +5,12 @@ const shuffle = require('lodash.shuffle')
 const assert = require('assert')
 const parseUrl = require('socket.io-client/lib/url')
 const timestamp = require('monotonic-timestamp')
+const { ERR_CONNECTION_TIMEOUT } = require('simple-signal-client')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
+
+const ERR_TIE_BREAKER = 'ERR_TIE_BREAKER'
 
 class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
@@ -40,7 +43,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.destroyed = false
 
-    this.signal = new SignalClient(this.socket, { connectTimeout: opts.connectTimeout })
+    this.signal = new SignalClient(this.socket, { connectionTimeout: opts.connectionTimeout })
 
     this._initialize(opts)
   }
@@ -260,7 +263,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
           // oldPeer wins
           if (requestConnectingAt > oldPeer.connectingAt) {
             debug(`tie-breaker wins localPeer: ${this.id}`)
-            request.reject({ reason: 'tie-breaker' })
+            request.reject({ code: ERR_TIE_BREAKER })
             return
           }
         }
@@ -283,14 +286,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this._bindPeerEvents(peer, info)
     } catch (err) {
-      if (err.metadata && err.metadata.reason === 'tie-breaker') {
+      const error = SignalClient.parseMetadataError(err)
+
+      if (error.code === ERR_TIE_BREAKER) {
         debug(`tie-breaker wins remotePeer: ${info.id}`)
         return
       }
 
       this.delPeer(info)
-      this.emit('connect-failed', err, info)
-      this.emit('error', err, info)
+      this.emit('connect-failed', error, info)
+      this.emit('error', error, info)
     }
   }
 
