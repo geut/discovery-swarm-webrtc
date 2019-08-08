@@ -5,6 +5,8 @@ const TO_SPAWN = 32
 
 const G = new jsnx.DiGraph()
 const connections = new Set()
+const peers = new Set()
+const peersLength = document.getElementById('peers-length')
 
 bootstrap().then(draw)
 
@@ -12,6 +14,16 @@ async function bootstrap () {
   let toSpawn = TO_SPAWN
   while (toSpawn--) {
     createPeer()
+  }
+}
+
+
+function addPeer(id) {
+  id = id.toString('hex')
+  if (!peers.has(id)) {
+    peers.add(id);
+    G.addNode(id)
+    peersLength.innerHTML = peers.size
   }
 }
 
@@ -24,6 +36,7 @@ function createPeer () {
     const connection = [sw.id.toString('hex'), info.id.toString('hex')].sort()
     const connectionId = connection.join('-')
     if (!connections.has(connectionId)) {
+      addPeer(info.id)
       G.addEdge(...connection)
       connections.add(connectionId)
     }
@@ -39,12 +52,11 @@ function createPeer () {
   })
 
   sw.on('error', (err, info) => {
-    console.log(err)
+    console.log(err, info.id.toString('hex'))
   })
 
   sw.join(Buffer.from('0011', 'hex'))
-  console.log('enter', sw.id.toString('hex'))
-  G.addNode(sw.id.toString('hex'))
+  addPeer(sw.id)
 
   return sw
 }

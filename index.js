@@ -264,8 +264,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     debug(`createPeer from ${request ? 'request' : 'connect'}`, { info, request })
 
     try {
-      let result
-
       const oldPeer = this._findPeer(info)
 
       if (oldPeer) {
@@ -352,7 +350,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     peer.on('close', async () => {
       debug('close', { peer, info })
-
       const savedPeer = this._findPeer(info)
 
       if (savedPeer !== peer) {
