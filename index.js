@@ -22,7 +22,7 @@ const toHex = buff => {
     return buff.toString('hex')
   }
 
-  throw new Error('Cannot convert to hex the buffer: ', buff)
+  throw new Error('Cannot convert the buffer to hex: ', buff)
 }
 
 const toBuffer = str => {
@@ -34,7 +34,7 @@ const toBuffer = str => {
     return Buffer.from(str, 'hex')
   }
 
-  throw new Error('Cannot convert to buffer the string: ', str)
+  throw new Error('Cannot convert the string to buffer: ', str)
 }
 
 class DiscoverySwarmWebrtc extends EventEmitter {
@@ -86,6 +86,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   peers (channelName) {
+    console.assert(Buffer.isBuffer(channelName))
+
     channelName = toHex(channelName)
 
     if (channelName) {
@@ -106,6 +108,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   join (channel) {
+    console.assert(Buffer.isBuffer(channel))
+
     // Account for buffers being passed in
     const channelString = toHex(channel)
     if (this._channels.has(channelString)) {
@@ -115,11 +119,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._channels.set(channelString, new Map())
     this._closedChannels.delete(channelString)
 
-    this._mmsts.set(channelString, new MMST({
+    const mmst = new MMST({
       id: this._id,
       lookup: () => this._lookup(channelString),
       connect: (to) => this._connect(to, channelString)
-    }))
+    })
+
+    this._mmsts.set(channelString, mmst)
 
     if (this._socket.connected) {
       this.signal.discover({ id: toHex(this._id), channel: channelString })
@@ -127,6 +133,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   leave (channel) {
+    console.assert(Buffer.isBuffer(channel))
+
     // Account for buffers being passed in
     const channelString = channel.toString('hex')
 
@@ -182,6 +190,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       // we do a random candidate list
       await this._updateCandidates({ channel }, peers)
+
+      // Runs mst
+      await this._run(channel)
     })
 
     signal.on('request', async (request) => {
@@ -195,7 +206,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       const info = { id: toBuffer(id), channel: toBuffer(channel) }
 
-      await this._createPeer({ request, info })
+      try {
+        await this._createPeer({ request, info })
+      } catch (err) {
+        // nothing to do
+      }
     })
 
     signal.on('info', data => this.emit('info', data))
@@ -294,12 +309,14 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       if (error.code === ERR_TIE_BREAKER) {
         debug(`tie-breaker wins remotePeer: ${toHex(info.id)}`)
-        return
+        throw error
       }
 
       this._deletePeer(info)
       this.emit('connect-failed', error, info)
       this.emit('error', error, info)
+
+      throw error
     }
   }
 
@@ -330,7 +347,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       pump(peer, conn, peer)
     })
 
-    peer.on('close', () => {
+    peer.on('close', async () => {
       debug('close', { peer, info })
 
       const savedPeer = this._findPeer(info)
@@ -345,7 +362,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this.emit('connection-closed', peer, info)
 
-      this._updateCandidates(info)
+      await this._updateCandidates(info)
+      await this._run(info.channel)
     })
   }
 
@@ -370,10 +388,19 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
   }
 
+  _run (channel) {
+    channel = toHex(channel)
+    if (this._mmsts.has(channel) && !this._isClosed(channel)) {
+      this._mmsts.get(channel).run()
+    }
+  }
+
   _lookup (channel) {
+    const candidates = this._candidates.get(channel) || []
+
     const stream = new Readable({
       read () {
-        this.push(this._candidates.get(channel))
+        this.push(candidates)
         this.push(null)
       },
       objectMode: true
