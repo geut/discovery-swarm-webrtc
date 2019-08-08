@@ -290,13 +290,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       info.connectingAt = timestamp()
       this._addPeer(info)
 
-      if (request) {
-        result = await request.accept({}, this._simplePeerOptions) // Accept the incoming request
-      } else {
-        result = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions)
-      }
+      let peer = null
 
-      const { peer } = result
+      if (request) {
+        ({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
+        peer.close = peer.destroy.bind(peer) // Hack for the missing stream close method
+        this._mmsts.get(toHex(info.channel)).handleIncoming(info.id, peer)
+      } else {
+        ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
+        peer.close = peer.destroy.bind(peer) // Hack for the missing stream close method
+      }
 
       // we got a peer instance, we update the peer list
       this._addPeer(info, peer)
@@ -410,9 +413,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _connect (id, channel) {
-    const connection = await this._createPeer({ info: { id, channel: toBuffer(channel) } })
-    this._mmsts.get(channel).handleIncoming(this._id, connection)
-    return connection
+    return this._createPeer({ info: { id, channel: toBuffer(channel) } })
   }
 }
 

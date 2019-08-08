@@ -26,7 +26,6 @@ function createPeer () {
     if (!connections.has(connectionId)) {
       G.addEdge(...connection)
       connections.add(connectionId)
-      draw()
     }
   })
 
@@ -36,7 +35,6 @@ function createPeer () {
     if (connections.has(connectionId)) {
       G.removeEdge(...connection)
       connections.delete(connectionId)
-      draw()
     }
   })
 
@@ -74,5 +72,5 @@ function draw () {
       r: 16
     },
     stickyDrag: true
-  })
+  }, true)
 }
