@@ -15,7 +15,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\"",
     "posttest": "npm run lint",
-    "lint": "eslint **/*.js",
+    "lint": "eslint \"**/*.js\"",
     "start": "node bin/index.js"
   },
   "repository": {
@@ -31,9 +31,9 @@
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
     "debug": "^4.1.1",
-    "lodash.shuffle": "^4.2.0",
     "minimist": "^1.2.0",
     "monotonic-timestamp": "0.0.9",
+    "mostly-minimal-spanning-tree": "git+https://github.com/RangerMauve/mostly-minimal-spanning-tree.git",
     "multiplex": "^6.7.0",
     "pump": "^3.0.0",
     "simple-signal-client": "^2.3.0",
