@@ -27,6 +27,9 @@ class SignalSwarmServer extends SignalServer {
 
       debug(`discover: ${peerId} channel: ${channelName}`)
 
+      // Add the peer to the channelName room.
+      request.socket.join(channelName)
+
       request.discover(peerId, { peers: Array.from(channel.values()), channel: channelName })
     })
 
@@ -68,7 +71,7 @@ class SignalSwarmServer extends SignalServer {
       const peerId = channel.get(id)
       if (peerId && channel.delete(id)) {
         debug(`leave: ${peerId} channel: ${channelName}`)
-        this.emit('peer:leave', { id, channel: channelName, peerId })
+        this.emit('peer:leave', { socket: request.socket, id, channel: channelName, peerId })
       }
 
       return request.forward()

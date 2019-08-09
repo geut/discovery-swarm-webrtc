@@ -8,7 +8,7 @@
     "> 5%"
   ],
   "scripts": {
-    "start": "parcel index.html --no-cache"
+    "start": "node signal.js & parcel index.html --no-cache"
   },
   "keywords": [],
   "author": "",

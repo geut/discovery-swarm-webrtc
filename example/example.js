@@ -4,9 +4,10 @@ const swarm = require('..')
 const TO_SPAWN = 32
 
 const G = new jsnx.DiGraph()
-const connections = new Set()
+let lastConnections = []
 const peers = new Set()
-const peersLength = document.getElementById('peers-length')
+const peersTitle = document.getElementById('peers-title')
+const connectionsTitle = document.getElementById('connections-title')
 
 bootstrap().then(draw)
 
@@ -17,13 +18,12 @@ async function bootstrap () {
   }
 }
 
-
-function addPeer(id) {
-  id = id.toString('hex')
+function addPeer (id) {
+  id = Buffer.isBuffer(id) ? id.toString('hex') : id
   if (!peers.has(id)) {
-    peers.add(id);
+    peers.add(id)
     G.addNode(id)
-    peersLength.innerHTML = peers.size
+    peersTitle.innerHTML = peers.size
   }
 }
 
@@ -34,21 +34,30 @@ function createPeer () {
 
   sw.on('connection', (peer, info) => {
     const connection = [sw.id.toString('hex'), info.id.toString('hex')].sort()
-    const connectionId = connection.join('-')
-    if (!connections.has(connectionId)) {
-      addPeer(info.id)
-      G.addEdge(...connection)
-      connections.add(connectionId)
-    }
+    sw.info({ type: 'connection', channel: info.channel.toString('hex'), peers: connection })
   })
 
   sw.on('connection-closed', (peer, info) => {
     const connection = [sw.id.toString('hex'), info.id.toString('hex')].sort()
-    const connectionId = connection.join('-')
-    if (connections.has(connectionId)) {
-      G.removeEdge(...connection)
-      connections.delete(connectionId)
-    }
+    sw.info({ type: 'disconnection', channel: info.channel.toString('hex'), peers: connection })
+  })
+
+  sw.on('info', ({ connections }) => {
+    connections.forEach(conn => {
+      const [peerOne, peerTwo] = conn
+      addPeer(peerOne)
+      addPeer(peerTwo)
+      G.addEdge(peerOne, peerTwo)
+      connectionsTitle.innerHTML = connections.length
+    })
+
+    lastConnections.filter(conn => !connections.find(newConn => conn[0] === newConn[0] && conn[1] === newConn[1]))
+      .forEach(conn => {
+        const [peerOne, peerTwo] = conn
+        G.removeEdge(peerOne, peerTwo)
+      })
+
+    lastConnections = connections
   })
 
   sw.on('error', (err, info) => {

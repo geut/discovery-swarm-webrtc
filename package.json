@@ -31,6 +31,7 @@
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
     "debug": "^4.1.1",
+    "duplexify": "^4.1.1",
     "minimist": "^1.2.0",
     "monotonic-timestamp": "0.0.9",
     "mostly-minimal-spanning-tree": "git+https://github.com/RangerMauve/mostly-minimal-spanning-tree.git",
@@ -39,7 +40,8 @@
     "simple-signal-client": "^2.3.0",
     "simple-signal-server": "^2.1.0",
     "socket.io": "^2.2.0",
-    "socket.io-client": "^2.2.0"
+    "socket.io-client": "^2.2.0",
+    "through2": "^3.0.1"
   },
   "devDependencies": {
     "eslint": "^5.15.3",

@@ -1,1 +1,3 @@
-example/
+example/node_modules
+example/dist
+example/.cache

@@ -7,11 +7,16 @@ const io = require('socket.io-client')
 const parseUrl = require('socket.io-client/lib/url')
 const timestamp = require('monotonic-timestamp')
 const MMST = require('mostly-minimal-spanning-tree')
+const through = require('through2')
+const duplexify = require('duplexify')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 
 const ERR_TIE_BREAKER = 'ERR_TIE_BREAKER'
+const ERR_REMOTE_INVALID_CHANNEL = 'ERR_REMOTE_INVALID_CHANNEL'
+const ERR_REMOTE_CHANNEL_CLOSED = 'ERR_REMOTE_CHANNEL_CLOSED'
+const ERR_REMOTE_MAX_PEERS_REACHED = 'ERR_REMOTE_MAX_PEERS_REACHED'
 
 const toHex = buff => {
   if (typeof buff === 'string') {
@@ -176,6 +181,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     process.nextTick(() => this.emit('close'))
   }
 
+  info (...args) {
+    return this.signal.info(...args)
+  }
+
   _initialize () {
     const signal = this.signal
 
@@ -199,15 +208,21 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       const { initiator: id, metadata: { channel } } = request
 
       // Ignore requests from channels we're not a part of
-      if (!this._channels.has(channel)) return
+      if (!this._channels.has(channel)) {
+        request.reject({ code: ERR_REMOTE_INVALID_CHANNEL })
+        return
+      }
 
       // Ignore if the channel was closed
-      if (this._isClosed(channel)) return
+      if (this._isClosed(channel)) {
+        request.reject({ code: ERR_REMOTE_CHANNEL_CLOSED })
+        return
+      }
 
       const info = { id: toBuffer(id), channel: toBuffer(channel) }
 
       try {
-        await this._createPeer({ request, info })
+        await this._createConnection({ request, info })
       } catch (err) {
         // nothing to do
       }
@@ -240,7 +255,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     return item.get(toHex(id))
   }
 
-  _addPeer (info, peer = {}) {
+  _addPeer (peer = {}, info) {
     peer = Object.assign(peer, info)
 
     this._channels.get(toHex(info.channel)).set(toHex(info.id), peer)
@@ -252,7 +267,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const peers = this._channels.get(toHex(channel))
 
     if (peers) {
-      peers.delete(toHex(id))
+      const peer = peers.get(toHex(id))
+      if (peer) {
+        peer.destroy && peer.destroy()
+        peers.delete(toHex(id))
+      }
     }
   }
 
@@ -260,8 +279,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     return this._closedChannels.has(toHex(channel))
   }
 
-  async _createPeer ({ request, info }) {
-    debug(`createPeer from ${request ? 'request' : 'connect'}`, { info, request })
+  async _createConnection ({ request, info }) {
+    debug(`createConnection from ${request ? 'request' : 'connect'}`, { info, request })
 
     try {
       const oldPeer = this._findPeer(info)
@@ -286,21 +305,27 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       // we save the peer just to be sure that is connecting and trying to get a peer instance
       info.connectingAt = timestamp()
-      this._addPeer(info)
 
       let peer = null
+      let tmpPeer = duplexify(through(), through())
+
+      this._addPeer(tmpPeer, info)
 
       if (request) {
-        ({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
-        peer.close = peer.destroy.bind(peer) // Hack for the missing stream close method
-        this._mmsts.get(toHex(info.channel)).handleIncoming(info.id, peer)
+        const mmst = this._mmsts.get(toHex(info.channel))
+        if (mmst.connectedPeers.size >= mmst.maxPeers) {
+          request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
+          return
+        } else {
+          mmst.addConnection(info.id, tmpPeer)
+          ;({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
+        }
       } else {
         ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
-        peer.close = peer.destroy.bind(peer) // Hack for the missing stream close method
       }
 
-      // we got a peer instance, we update the peer list
-      this._addPeer(info, peer)
+      // We got a SimplePeer instance, we update the peer list
+      this._addPeer(pump(tmpPeer, peer), info)
 
       this._bindPeerEvents(peer, info)
 
@@ -410,7 +435,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _connect (id, channel) {
-    return this._createPeer({ info: { id, channel: toBuffer(channel) } })
+    return this._createConnection({ info: { id, channel: toBuffer(channel) } })
   }
 }
 
