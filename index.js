@@ -303,12 +303,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         }
       }
 
-      // we save the peer just to be sure that is connecting and trying to get a peer instance
       info.connectingAt = timestamp()
 
       let peer = null
-      let tmpPeer = duplexify(through(), through())
 
+      // Save the a tmpPeer just to be sure that is connecting and trying to get a peer instance
+      let tmpPeer = duplexify(through(), through())
       this._addPeer(tmpPeer, info)
 
       if (request) {
@@ -324,7 +324,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
       }
 
-      // We got a SimplePeer instance, we update the peer list
+      // Got a SimplePeer instance, we update the peer list
       this._addPeer(pump(tmpPeer, peer), info)
 
       this._bindPeerEvents(peer, info)

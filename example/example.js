@@ -43,7 +43,13 @@ function createPeer () {
   })
 
   sw.on('info', ({ connections }) => {
+    const exists = (conn, list) => list.find(newConn => conn[0] === newConn[0] && conn[1] === newConn[1])
+
     connections.forEach(conn => {
+      if (exists(conn, lastConnections)) {
+        return
+      }
+
       const [peerOne, peerTwo] = conn
       addPeer(peerOne)
       addPeer(peerTwo)
@@ -51,7 +57,7 @@ function createPeer () {
       connectionsTitle.innerHTML = connections.length
     })
 
-    lastConnections.filter(conn => !connections.find(newConn => conn[0] === newConn[0] && conn[1] === newConn[1]))
+    lastConnections.filter(conn => !exists(conn, connections))
       .forEach(conn => {
         const [peerOne, peerTwo] = conn
         G.removeEdge(peerOne, peerTwo)
