@@ -65,6 +65,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._destroyed = false
 
+    this._maxPeers = opts.maxPeers
+
     this._urls = opts.urls.map(url => parseUrl(url).source)
 
     this._socket = io(this._urls[0], opts.socketOptions)
@@ -127,7 +129,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const mmst = new MMST({
       id: this._id,
       lookup: () => this._lookup(channelString),
-      connect: (to) => this._connect(to, channelString)
+      connect: (to) => this._connect(to, channelString),
+      maxPeers: this._maxPeers
     })
 
     this._mmsts.set(channelString, mmst)
@@ -313,12 +316,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       if (request) {
         const mmst = this._mmsts.get(toHex(info.channel))
-        if (mmst.connectedPeers.size >= mmst.maxPeers) {
-          request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
-          return
-        } else {
+        if (mmst.shouldHandleIncoming()) {
           mmst.addConnection(info.id, tmpPeer)
           ;({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
+        } else {
+          request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
+          return
         }
       } else {
         ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
