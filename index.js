@@ -14,6 +14,7 @@ const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 
 const ERR_TIE_BREAKER = 'ERR_TIE_BREAKER'
+const ERR_MAX_PEERS_REACHED = 'ERR_MAX_PEERS_REACHED'
 const ERR_REMOTE_INVALID_CHANNEL = 'ERR_REMOTE_INVALID_CHANNEL'
 const ERR_REMOTE_CHANNEL_CLOSED = 'ERR_REMOTE_CHANNEL_CLOSED'
 const ERR_REMOTE_MAX_PEERS_REACHED = 'ERR_REMOTE_MAX_PEERS_REACHED'
@@ -49,7 +50,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     console.assert(Array.isArray(opts.urls) && opts.urls.length > 0, 'An array of urls is required.')
 
-    this._id = opts.id || crypto.randomBytes(12)
+    this._id = opts.id || crypto.randomBytes(32)
 
     this._stream = opts.stream
 
@@ -144,7 +145,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     console.assert(Buffer.isBuffer(channel))
 
     // Account for buffers being passed in
-    const channelString = channel.toString('hex')
+    const channelString = toHex(channel)
 
     let peers = this._channels.get(channelString)
 
@@ -153,7 +154,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._closedChannels.add(channelString)
 
     // we need to notify to the signal that we our leaving
-    this.signal.leave({ id: this._id, channel: channelString }).then(() => {}).catch(() => {})
+    this.signal.leave({ id: toHex(this._id), channel: channelString }).then(() => {}).catch(() => {})
 
     for (let peer of peers.values()) {
       // Destroy the connection, should emit close and remove it from the list
@@ -200,11 +201,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       // Ignore if the channel was closed
       if (this._isClosed(channel)) return
 
-      // we do a random candidate list
-      await this._updateCandidates({ channel }, peers)
-
       // Runs mst
-      await this._run(channel)
+      await this._run(channel, peers)
     })
 
     signal.on('request', async (request) => {
@@ -321,7 +319,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
           ;({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
         } else {
           request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
-          return
+          throw SignalClient.createError(ERR_MAX_PEERS_REACHED)
         }
       } else {
         ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
@@ -376,7 +374,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       pump(peer, conn, peer)
     })
 
-    peer.on('close', async () => {
+    peer.on('close', () => {
       debug('close', { peer, info })
       const savedPeer = this._findPeer(info)
 
@@ -390,8 +388,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this.emit('connection-closed', peer, info)
 
-      await this._updateCandidates(info)
-      await this._run(info.channel)
+      this._run(info.channel)
     })
   }
 
@@ -403,23 +400,29 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.emit('connection', conn, info)
   }
 
-  async _updateCandidates (info, peers) {
+  async _updateCandidates (channel, peers) {
     try {
       if (!peers) {
-        const result = await this.signal.candidates({ channel: toHex(info.channel) })
+        const result = await this.signal.candidates({ channel: toHex(channel) })
         peers = result.peers
       }
 
-      this._candidates.set(toHex(info.channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
+      this._candidates.set(toHex(channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
     } catch (err) {
       this.emit('error', err)
     }
   }
 
-  _run (channel) {
-    channel = toHex(channel)
-    if (this._mmsts.has(channel) && !this._isClosed(channel)) {
-      this._mmsts.get(channel).run()
+  async _run (channel, peers) {
+    try {
+      await this._updateCandidates(channel, peers)
+
+      channel = toHex(channel)
+      if (this._mmsts.has(channel) && !this._isClosed(channel)) {
+        await this._mmsts.get(channel).run()
+      }
+    } catch (err) {
+      // nothing to do
     }
   }
 
