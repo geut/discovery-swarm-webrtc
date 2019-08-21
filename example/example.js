@@ -4,7 +4,8 @@ const swarm = require('..')
 const TO_SPAWN = 32
 
 const G = new jsnx.DiGraph()
-let lastConnections = []
+const connectionsByPeer = new Map()
+const connections = new Set()
 const peers = new Set()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
@@ -25,6 +26,9 @@ function addPeer (id) {
     G.addNode(id)
     peersTitle.innerHTML = peers.size
   }
+  if (!connectionsByPeer.has(id)) {
+    connectionsByPeer.set(id, [])
+  }
 }
 
 function createPeer () {
@@ -33,37 +37,41 @@ function createPeer () {
   })
 
   sw.on('connection', (peer, info) => {
-    const connection = [sw.id.toString('hex'), info.id.toString('hex')].sort()
-    sw.info({ type: 'connection', channel: info.channel.toString('hex'), peers: connection })
+    const channel = info.channel.toString('hex')
+    sw.info({ channel, peers: sw.peers(info.channel).map(peer => peer.id.toString('hex')) })
   })
 
   sw.on('connection-closed', (peer, info) => {
-    const connection = [sw.id.toString('hex'), info.id.toString('hex')].sort()
-    sw.info({ type: 'disconnection', channel: info.channel.toString('hex'), peers: connection })
+    const channel = info.channel.toString('hex')
+    sw.info({ channel, peers: sw.peers(info.channel).map(peer => peer.id.toString('hex')) })
   })
 
-  sw.on('info', ({ connections }) => {
-    const exists = (conn, list) => list.find(newConn => conn[0] === newConn[0] && conn[1] === newConn[1])
-
-    connections.forEach(conn => {
-      if (exists(conn, lastConnections)) {
-        return
-      }
-
-      const [peerOne, peerTwo] = conn
-      addPeer(peerOne)
-      addPeer(peerTwo)
-      G.addEdge(peerOne, peerTwo)
-      connectionsTitle.innerHTML = connections.length
+  sw.on('info', ({ channel, peerId, peers }) => {
+    addPeer(peerId)
+    peers.forEach(remotePeerId => {
+      addPeer(remotePeerId)
     })
 
-    lastConnections.filter(conn => !exists(conn, connections))
-      .forEach(conn => {
-        const [peerOne, peerTwo] = conn
-        G.removeEdge(peerOne, peerTwo)
+    const lastConnections = connectionsByPeer.get(peerId)
+    connectionsByPeer.set(peerId, peers)
+
+    lastConnections
+      .forEach(remotePeerId => {
+        if (!peers.includes(remotePeerId)) {
+          const connectionId = [peerId, remotePeerId].sort()
+          G.removeEdge(connectionId[0], connectionId[1])
+          connections.delete(connectionId.join(':'))
+        }
       })
 
-    lastConnections = connections
+    peers.forEach(remotePeerId => {
+      const connectionId = [peerId, remotePeerId].sort()
+      if (!connections.has(connectionId.join(':'))) {
+        G.addEdge(connectionId[0], connectionId[1])
+        connections.add(connectionId.join(':'))
+      }
+      connectionsTitle.innerHTML = connections.size
+    })
   })
 
   sw.on('error', (err, info) => {

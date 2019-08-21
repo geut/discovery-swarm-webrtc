@@ -374,7 +374,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       pump(peer, conn, peer)
     })
 
-    peer.on('close', () => {
+    peer.on('close', async () => {
       debug('close', { peer, info })
       const savedPeer = this._findPeer(info)
 
@@ -388,7 +388,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this.emit('connection-closed', peer, info)
 
-      this._run(info.channel)
+      await this._run(info.channel)
     })
   }
 

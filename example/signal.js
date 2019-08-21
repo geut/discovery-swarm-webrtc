@@ -6,40 +6,21 @@ const createSignal = require('../server')
 function createServer ({ io }) {
   const signalSwarm = createSignal({ io })
 
-  const connections = new Set()
-
-  signalSwarm.on('peer:leave', ({ peerId }) => {
-    connections.forEach((connection) => {
-      if (connection.includes(peerId)) {
-        connections.delete(connection)
-      }
-    })
-  })
-
   signalSwarm.on('info', (request) => {
-    const { type, channel: channelName, peers = [] } = request.discoveryData
-
-    const connectionId = `${channelName}:${peers.sort().join(':')}`
-
-    if (type === 'connection') {
-      connections.add(connectionId)
-    } else if (type === 'disconnection') {
-      connections.delete(connectionId)
-    }
-
-    const result = Array.from(connections.values())
-      .filter(connection => connection.includes(channelName))
-      .map((connection) => {
-        const conn = connection.split(':')
-        return [conn[1], conn[2]]
-      })
+    const { channel: channelName, peers = [] } = request.discoveryData
+    const channel = signalSwarm.channels.get(channelName)
+    const peerId = channel.get(request.socket.id)
 
     if (signalSwarm.channels.has(channelName)) {
-      signalSwarm.channels.get(channelName).forEach((peerId) => {
+      signalSwarm.channels.get(channelName).forEach((_peerId) => {
+        if (peerId === _peerId) {
+          return
+        }
+
         // eslint-disable-next-line no-underscore-dangle
-        const socket = signalSwarm._sockets[peerId]
+        const socket = signalSwarm._sockets[_peerId]
         if (socket) {
-          socket.emit('simple-signal[info]', { channel: channelName, connections: result })
+          socket.emit('simple-signal[info]', { channel: channelName, peerId, peers })
         }
       })
     }
