@@ -131,7 +131,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       id: this._id,
       lookup: () => this._lookup(channelString),
       connect: (to) => this._connect(to, channelString),
-      maxPeers: this._maxPeers
+      maxPeers: this._maxPeers,
+      lookupTimeout: 5 * 1000
     })
 
     this._mmsts.set(channelString, mmst)
@@ -202,7 +203,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       if (this._isClosed(channel)) return
 
       // Runs mst
-      await this._run(channel, peers)
+      await this._updateCandidates(channel, peers)
+      await this._run(channel)
     })
 
     signal.on('request', async (request) => {
@@ -387,8 +389,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       this._deletePeer(info)
 
       this.emit('connection-closed', peer, info)
-
-      await this._run(info.channel)
     })
   }
 
@@ -413,10 +413,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
   }
 
-  async _run (channel, peers) {
+  async _run (channel) {
     try {
-      await this._updateCandidates(channel, peers)
-
       channel = toHex(channel)
       if (this._mmsts.has(channel) && !this._isClosed(channel)) {
         await this._mmsts.get(channel).run()
@@ -427,12 +425,18 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _lookup (channel) {
-    const candidates = this._candidates.get(channel) || []
+    const self = this
 
     const stream = new Readable({
       read () {
-        this.push(candidates)
-        this.push(null)
+        self._updateCandidates(channel).then(() => {
+          const candidates = self._candidates.get(channel) || []
+          this.push(candidates)
+          this.push(null)
+        }).catch(() => {
+          this.push([])
+          this.push(null)
+        })
       },
       objectMode: true
     })
