@@ -33,7 +33,7 @@ function addPeer (id) {
 
 function createPeer () {
   const sw = swarm({
-    urls: ['localhost:4000']
+    bootstrap: ['localhost:4000']
   })
 
   sw.on('connection', (peer, info) => {

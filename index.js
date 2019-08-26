@@ -3,8 +3,6 @@ const { Readable } = require('stream')
 const crypto = require('crypto')
 
 const pump = require('pump')
-const io = require('socket.io-client')
-const parseUrl = require('socket.io-client/lib/url')
 const timestamp = require('monotonic-timestamp')
 const MMST = require('mostly-minimal-spanning-tree')
 const through = require('through2')
@@ -48,7 +46,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     super()
     debug('opts', opts)
 
-    console.assert(Array.isArray(opts.urls) && opts.urls.length > 0, 'An array of urls is required.')
+    console.assert(Array.isArray(opts.bootstrap) && opts.bootstrap.length > 0, 'An array of bootstrap urls is required.')
 
     this._id = opts.id || crypto.randomBytes(32)
 
@@ -68,11 +66,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._maxPeers = opts.maxPeers
 
-    this._urls = opts.urls.map(url => parseUrl(url).source)
-
-    this._socket = io(this._urls[0], opts.socketOptions)
-
-    this.signal = new SignalClient(this._socket, { connectionTimeout: opts.connectionTimeout })
+    this.signal = new SignalClient({
+      bootstrap: opts.bootstrap,
+      connectionTimeout: opts.connectionTimeout
+    })
 
     this._initialize(opts)
   }
@@ -137,7 +134,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._mmsts.set(channelString, mmst)
 
-    if (this._socket.connected) {
+    if (this.signal.connected) {
       this.signal.discover({ id: toHex(this._id), channel: channelString })
     }
   }
@@ -233,18 +230,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     signal.on('info', data => this.emit('info', data))
 
-    this._socket.on('connect', () => {
+    this.signal.on('connect', () => {
       for (let channel of this._channels.keys()) {
         this.signal.discover({ id: toHex(this._id), channel: toHex(channel) })
       }
-    })
-
-    this._socket.on('reconnect_error', error => {
-      this.emit('socket:reconnect_error', error)
-      const lastUrl = this._socket.io.uri
-      const lastIdx = this._urls.indexOf(lastUrl)
-      const nextIdx = lastIdx === (this._urls.length - 1) ? 0 : lastIdx + 1
-      this._socket.io.uri = this._urls[nextIdx]
     })
   }
 
@@ -314,15 +303,17 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       let tmpPeer = duplexify(through(), through())
       this._addPeer(tmpPeer, info)
 
+      const mmst = this._mmsts.get(toHex(info.channel))
+
+      if (!mmst.shouldHandleIncoming()) {
+        request && request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
+        throw SignalClient.createError(ERR_MAX_PEERS_REACHED)
+      }
+
+      mmst.addConnection(info.id, tmpPeer)
+
       if (request) {
-        const mmst = this._mmsts.get(toHex(info.channel))
-        if (mmst.shouldHandleIncoming()) {
-          mmst.addConnection(info.id, tmpPeer)
-          ;({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
-        } else {
-          request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
-          throw SignalClient.createError(ERR_MAX_PEERS_REACHED)
-        }
+        ({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
       } else {
         ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
       }
