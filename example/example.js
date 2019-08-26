@@ -1,7 +1,7 @@
 const jsnx = require('jsnetworkx')
 const swarm = require('..')
 
-const TO_SPAWN = 32
+const TO_SPAWN = 2
 
 const G = new jsnx.DiGraph()
 const connectionsByPeer = new Map()
@@ -9,6 +9,7 @@ const connections = new Set()
 const peers = new Set()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
+const swarms = []
 
 bootstrap().then(draw)
 
@@ -81,6 +82,8 @@ function createPeer () {
   sw.join(Buffer.from('0011', 'hex'))
   addPeer(sw.id)
 
+  swarms.push(sw)
+
   return sw
 }
 
@@ -109,3 +112,16 @@ function draw () {
     stickyDrag: true
   }, true)
 }
+
+document.getElementById('add-peer').addEventListener('click', () => {
+  createPeer()
+})
+
+document.getElementById('remove-peer').addEventListener('click', () => {
+  const swarm = swarms.pop()
+  swarm.close(() => {
+    const id = swarm.id.toString('hex')
+    peers.delete(id)
+    G.removeNode(id)
+  })
+})

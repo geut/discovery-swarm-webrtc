@@ -379,6 +379,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this._deletePeer(info)
 
+      peer.emit('end')
+
       this.emit('connection-closed', peer, info)
     })
   }
@@ -412,24 +414,23 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
     } catch (err) {
       // nothing to do
+      console.log(err)
     }
   }
 
   _lookup (channel) {
-    const self = this
-
     const stream = new Readable({
-      read () {
-        self._updateCandidates(channel).then(() => {
-          const candidates = self._candidates.get(channel) || []
-          this.push(candidates)
-          this.push(null)
-        }).catch(() => {
-          this.push([])
-          this.push(null)
-        })
-      },
+      read () {},
       objectMode: true
+    })
+
+    this._updateCandidates(channel).then(() => {
+      const candidates = this._candidates.get(channel) || []
+      stream.push(candidates)
+      stream.push(null)
+    }).catch(() => {
+      stream.push([])
+      stream.push(null)
     })
 
     return stream
