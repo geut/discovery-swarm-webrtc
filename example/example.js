@@ -4,12 +4,13 @@ const swarm = require('..')
 const TO_SPAWN = 2
 
 const G = new jsnx.DiGraph()
-const connectionsByPeer = new Map()
-const connections = new Set()
-const peers = new Set()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
-const swarms = []
+const peers = new Set()
+const deletedPeers = new Set()
+const connections = new Set()
+
+window.peers = peers
 
 bootstrap().then(draw)
 
@@ -20,16 +21,22 @@ async function bootstrap () {
   }
 }
 
-function addPeer (id) {
-  id = Buffer.isBuffer(id) ? id.toString('hex') : id
-  if (!peers.has(id)) {
-    peers.add(id)
-    G.addNode(id)
+function addPeer (peer) {
+  if (!peers.has(peer)) {
+    peers.add(peer)
+    G.addNode(peer.id.toString('hex'))
     peersTitle.innerHTML = peers.size
   }
-  if (!connectionsByPeer.has(id)) {
-    connectionsByPeer.set(id, [])
+}
+
+function getConnection (sw, info) {
+  const connection = [sw.id.toString('hex'), info.id.toString('hex')]
+
+  if (info.initiator) {
+    return connection
   }
+
+  return connection.reverse()
 }
 
 function createPeer () {
@@ -38,53 +45,42 @@ function createPeer () {
   })
 
   sw.on('connection', (peer, info) => {
-    const channel = info.channel.toString('hex')
-    sw.info({ channel, peers: sw.peers(info.channel).map(peer => peer.id.toString('hex')) })
+    try {
+      const connection = getConnection(sw, info)
+      connections.add(connection.join(':'))
+      G.addEdge(connection[0], connection[1])
+    } catch (err) {}
+    connectionsTitle.innerHTML = connections.size
   })
 
   sw.on('connection-closed', (peer, info) => {
-    const channel = info.channel.toString('hex')
-    sw.info({ channel, peers: sw.peers(info.channel).map(peer => peer.id.toString('hex')) })
-  })
-
-  sw.on('info', ({ channel, peerId, peers }) => {
-    addPeer(peerId)
-    peers.forEach(remotePeerId => {
-      addPeer(remotePeerId)
-    })
-
-    const lastConnections = connectionsByPeer.get(peerId)
-    connectionsByPeer.set(peerId, peers)
-
-    lastConnections
-      .forEach(remotePeerId => {
-        if (!peers.includes(remotePeerId)) {
-          const connectionId = [peerId, remotePeerId].sort()
-          G.removeEdge(connectionId[0], connectionId[1])
-          connections.delete(connectionId.join(':'))
-        }
-      })
-
-    peers.forEach(remotePeerId => {
-      const connectionId = [peerId, remotePeerId].sort()
-      if (!connections.has(connectionId.join(':'))) {
-        G.addEdge(connectionId[0], connectionId[1])
-        connections.add(connectionId.join(':'))
-      }
-      connectionsTitle.innerHTML = connections.size
-    })
+    try {
+      const connection = getConnection(sw, info)
+      connections.delete(connection.join(':'))
+      G.removeEdge(connection[0], connection[1])
+    } catch (err) {}
+    connectionsTitle.innerHTML = connections.size
   })
 
   sw.on('error', (err, info) => {
-    console.log(err, info.id.toString('hex'))
+    console.log(err.code, info.id.toString('hex'))
   })
 
   sw.join(Buffer.from('0011', 'hex'))
-  addPeer(sw.id)
 
-  swarms.push(sw)
+  addPeer(sw)
 
   return sw
+}
+
+function deletePeer () {
+  const peer = Array.from(peers.values()).reverse().pop()
+  peers.delete(peer)
+  deletedPeers.add(peer.id.toString('hex'))
+  G.addNode(peer.id.toString('hex'))
+  peer.leave(Buffer.from('0011', 'hex'))
+  peersTitle.innerHTML = peers.size
+  window.last = peer
 }
 
 function draw () {
@@ -94,12 +90,21 @@ function draw () {
       linkDistance: 100
     },
     withLabels: true,
-    // labelStyle: { fill: 'rebeccapurple' },
     labels: (d) => d.node.slice(0, 4),
     nodeStyle: {
-      fill: 'white',
+      fill: d => {
+        if (deletedPeers.has(d.node)) {
+          return 'red'
+        }
+
+        return 'white'
+      },
       strokeWidth: 4,
       stroke: (d) => {
+        if (deletedPeers.has(d.node)) {
+          return 'red'
+        }
+
         const mostSignificant = parseInt(d.node.slice(0, 2), 16)
         const percent = mostSignificant / 255
         const hue = percent * 360
@@ -118,10 +123,13 @@ document.getElementById('add-peer').addEventListener('click', () => {
 })
 
 document.getElementById('remove-peer').addEventListener('click', () => {
-  const swarm = swarms.pop()
-  swarm.close(() => {
-    const id = swarm.id.toString('hex')
-    peers.delete(id)
-    G.removeNode(id)
-  })
+  deletePeer()
+})
+
+document.getElementById('add-many-peers').addEventListener('click', () => {
+  [...Array(25).keys()].forEach(() => createPeer())
+})
+
+document.getElementById('remove-many-peers').addEventListener('click', () => {
+  [...Array(25).keys()].forEach(() => deletePeer())
 })

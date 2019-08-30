@@ -3,43 +3,20 @@ const { Readable } = require('stream')
 const crypto = require('crypto')
 
 const pump = require('pump')
-const timestamp = require('monotonic-timestamp')
 const MMST = require('mostly-minimal-spanning-tree')
-const through = require('through2')
-const duplexify = require('duplexify')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
+const Peer = require('./lib/peer')
+const Scheduler = require('./lib/scheduler')
+const { toHex, toBuffer, SwarmError } = require('./lib/utils')
 
-const ERR_TIE_BREAKER = 'ERR_TIE_BREAKER'
 const ERR_MAX_PEERS_REACHED = 'ERR_MAX_PEERS_REACHED'
-const ERR_REMOTE_INVALID_CHANNEL = 'ERR_REMOTE_INVALID_CHANNEL'
-const ERR_REMOTE_CHANNEL_CLOSED = 'ERR_REMOTE_CHANNEL_CLOSED'
+const ERR_INVALID_CHANNEL = 'ERR_INVALID_CHANNEL'
+const ERR_CONNECTION_DUPLICATED = 'ERR_CONNECTION_DUPLICATED'
 const ERR_REMOTE_MAX_PEERS_REACHED = 'ERR_REMOTE_MAX_PEERS_REACHED'
-
-const toHex = buff => {
-  if (typeof buff === 'string') {
-    return buff
-  }
-
-  if (Buffer.isBuffer(buff)) {
-    return buff.toString('hex')
-  }
-
-  throw new Error('Cannot convert the buffer to hex: ', buff)
-}
-
-const toBuffer = str => {
-  if (Buffer.isBuffer(str)) {
-    return str
-  }
-
-  if (typeof str === 'string') {
-    return Buffer.from(str, 'hex')
-  }
-
-  throw new Error('Cannot convert the string to buffer: ', str)
-}
+const ERR_REMOTE_INVALID_CHANNEL = 'ERR_REMOTE_INVALID_CHANNEL'
+const ERR_REMOTE_CONNECTION_DUPLICATED = 'ERR_REMOTE_CONNECTION_DUPLICATED'
 
 class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
@@ -54,13 +31,15 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._simplePeerOptions = opts.simplePeerOptions
 
-    this._channels = new Map()
+    this._peers = new Set()
 
-    this._closedChannels = new Set()
+    this._channels = new Set()
 
     this._mmsts = new Map()
 
     this._candidates = new Map()
+
+    this._scheduler = new Scheduler()
 
     this._destroyed = false
 
@@ -79,34 +58,24 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   get connecting () {
-    return this.peers().filter(peer => peer.connectingAt !== undefined).length
+    return this.peers().filter(peer => !peer.connected).length
   }
 
   get connected () {
-    return this.peers().filter(peer => peer.connectingAt === undefined).length
+    return this.peers().filter(peer => peer.connected).length
   }
 
   listen () {
     // Empty method to respect the API of discovery-swarm
   }
 
-  peers (channelName) {
-    console.assert(Buffer.isBuffer(channelName))
+  peers (channel) {
+    console.assert(!channel || Buffer.isBuffer(channel))
 
-    channelName = toHex(channelName)
+    const peers = Array.from(this._peers.values())
 
-    if (channelName) {
-      const channel = this._channels.get(channelName)
-      if (channel) {
-        return Array.from(channel.values())
-      }
-      return []
-    }
-
-    let peers = []
-
-    for (const channel of this._channels.values()) {
-      peers = [...peers, ...Array.from(channel.values())]
+    if (channel) {
+      return peers.filter(peer => peer.channel.equals(channel))
     }
 
     return peers
@@ -116,71 +85,82 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     console.assert(Buffer.isBuffer(channel))
 
     // Account for buffers being passed in
-    const channelString = toHex(channel)
-    if (this._channels.has(channelString)) {
+    const channelStr = toHex(channel)
+    if (this._channels.has(channelStr)) {
       return
     }
 
-    this._channels.set(channelString, new Map())
-    this._closedChannels.delete(channelString)
+    this._channels.add(channelStr)
 
     const mmst = new MMST({
       id: this._id,
-      lookup: () => this._lookup(channelString),
-      connect: (to) => this._connect(to, channelString),
+      lookup: () => this._lookup(channelStr),
+      connect: (to) => this._connect(to, channelStr),
       maxPeers: this._maxPeers,
       lookupTimeout: 5 * 1000
     })
 
-    this._mmsts.set(channelString, mmst)
+    this._mmsts.set(channelStr, mmst)
+
+    this._scheduler.addTask(channelStr, async (task) => {
+      if (this._isClosed(channel)) {
+        return task.destroy()
+      }
+
+      if (this.peers(channel).length > 0) {
+        return
+      }
+
+      await this._updateCandidates(channel)
+      await this._run(channel)
+    }, 10 * 1000)
 
     if (this.signal.connected) {
-      this.signal.discover({ id: toHex(this._id), channel: channelString })
+      this.signal.discover({ id: toHex(this._id), channel: channelStr })
     }
   }
 
-  leave (channel) {
+  async leave (channel) {
     console.assert(Buffer.isBuffer(channel))
 
     // Account for buffers being passed in
-    const channelString = toHex(channel)
+    const channelStr = toHex(channel)
 
-    let peers = this._channels.get(channelString)
+    this._scheduler.deleteTask(channelStr)
+    this._mmsts.get(channelStr).destroy()
+    this._mmsts.delete(channelStr)
+    this._channels.delete(channelStr)
+    this._candidates.delete(channelStr)
 
-    if (!peers) return
-
-    this._closedChannels.add(channelString)
-
-    // we need to notify to the signal that we our leaving
-    this.signal.leave({ id: toHex(this._id), channel: channelString }).then(() => {}).catch(() => {})
-
-    for (let peer of peers.values()) {
-      // Destroy the connection, should emit close and remove it from the list
-      peer.destroy && peer.destroy()
+    // We need to notify to the signal that we our leaving
+    try {
+      await this.signal.leave({ id: toHex(this._id), channel: channelStr })
+    } catch (err) {
+      // Nothing to do.
     }
 
-    // we need to remove the candidates for this channel
-    this._candidates.delete(channelString)
-    this._channels.delete(channelString)
-    this._mmsts.get(channelString).destroy()
-    this._mmsts.delete(channelString)
+    await Promise.all(this.peers(channel).map(async peer => this._disconnectPeer(peer)))
   }
 
-  close (cb) {
+  async close () {
     if (this._destroyed) {
-      if (cb) process.nextTick(cb)
       return
     }
 
     this._destroyed = true
 
-    if (cb) this.once('close', cb)
-
-    this.signal.destroy()
+    this._scheduler.clearTasks()
     this._mmsts.forEach(mmst => mmst.destroy())
     this._mmsts.clear()
+    this.signal.destroy()
+    this._channels.clear()
+    this._candidates.clear()
+    this._peers.clear()
 
-    process.nextTick(() => this.emit('close'))
+    return new Promise(resolve => process.nextTick(() => {
+      this.emit('close')
+      resolve()
+    }))
   }
 
   info (...args) {
@@ -193,36 +173,19 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('discover', async ({ peers, channel }) => {
       debug('discover', { peers, channel })
 
-      // Ignore requests from channels we're not a part of
-      if (!this._channels.has(channel)) return
-
-      // Ignore if the channel was closed
       if (this._isClosed(channel)) return
 
       // Runs mst
-      await this._updateCandidates(channel, peers)
+      await this._updateCandidates(channel)
       await this._run(channel)
+      this._scheduler.startTask(toHex(channel))
     })
 
     signal.on('request', async (request) => {
-      const { initiator: id, metadata: { channel } } = request
-
-      // Ignore requests from channels we're not a part of
-      if (!this._channels.has(channel)) {
-        request.reject({ code: ERR_REMOTE_INVALID_CHANNEL })
-        return
-      }
-
-      // Ignore if the channel was closed
-      if (this._isClosed(channel)) {
-        request.reject({ code: ERR_REMOTE_CHANNEL_CLOSED })
-        return
-      }
-
-      const info = { id: toBuffer(id), channel: toBuffer(channel) }
+      const { initiator: id, metadata: { channel, connectionId } } = request
 
       try {
-        await this._createConnection({ request, info })
+        await this._createConnection({ request, id, channel, connectionId })
       } catch (err) {
         // nothing to do
       }
@@ -237,151 +200,117 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
   }
 
-  _findPeer ({ id, channel }) {
-    const item = this._channels.get(toHex(channel))
-
-    if (!item) {
-      return null
-    }
-
-    return item.get(toHex(id))
-  }
-
-  _addPeer (peer = {}, info) {
-    peer = Object.assign(peer, info)
-
-    this._channels.get(toHex(info.channel)).set(toHex(info.id), peer)
-
-    return peer
-  }
-
-  _deletePeer ({ id, channel }) {
-    const peers = this._channels.get(toHex(channel))
-
-    if (peers) {
-      const peer = peers.get(toHex(id))
-      if (peer) {
-        peer.destroy && peer.destroy()
-        peers.delete(toHex(id))
-      }
-    }
+  async _disconnectPeer (peer) {
+    await peer.disconnect()
+    this._peers.delete(peer)
   }
 
   _isClosed (channel) {
-    return this._closedChannels.has(toHex(channel))
+    return !this._channels.has(toHex(channel))
   }
 
-  async _createConnection ({ request, info }) {
-    debug(`createConnection from ${request ? 'request' : 'connect'}`, { info, request })
+  async _createConnection ({ request, id, channel, connectionId }) {
+    const peer = new Peer(toBuffer(id), toBuffer(channel), {
+      connectionId: connectionId && toBuffer(connectionId),
+      initiator: !request
+    })
+
+    this._peers.add(peer)
+
+    debug(`createConnection from ${request ? 'request' : 'connect'}`, { request, info: peer.printInfo() })
+
+    let error = null
 
     try {
-      const oldPeer = this._findPeer(info)
+      const mmst = this._mmsts.get(toHex(peer.channel))
 
-      if (oldPeer) {
-        if (oldPeer && !oldPeer.connectingAt && !oldPeer.destroyed) {
-          this.emit('redundant-connection', oldPeer, info)
-          debug('redundant-connection', oldPeer, info)
-          oldPeer.destroy()
-        } else if (!!request && oldPeer.connectingAt) {
-          // tie-breaker connection: When both peer runs a signal.connect.
-          const { connectingAt: requestConnectingAt } = request.metadata
+      if (this._isClosed(peer.channel)) {
+        request && request.reject({ code: ERR_REMOTE_INVALID_CHANNEL })
+        throw new SwarmError(ERR_INVALID_CHANNEL)
+      }
 
-          // oldPeer wins
-          if (requestConnectingAt > oldPeer.connectingAt) {
-            debug(`tie-breaker wins localPeer: ${toHex(this._id)}`)
-            request.reject({ code: ERR_TIE_BREAKER })
-            return
-          }
+      if (request && !mmst.shouldHandleIncoming()) {
+        request && request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
+        throw new SwarmError(ERR_MAX_PEERS_REACHED)
+      }
+
+      const duplicate = this._checkForDuplicate(peer)
+      if (duplicate) {
+        request && request.reject({ code: ERR_REMOTE_CONNECTION_DUPLICATED })
+        throw new SwarmError(ERR_CONNECTION_DUPLICATED)
+      }
+
+      let result = null
+      if (request) {
+        result = await request.accept({}, this._simplePeerOptions) // Accept the incoming request
+      } else {
+        result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeerOptions)
+      }
+
+      peer.connect(result.peer)
+
+      if (request) {
+        if (mmst.shouldHandleIncoming()) {
+          mmst.addConnection(peer.id, peer.socket)
+        } else {
+          throw new SwarmError(ERR_MAX_PEERS_REACHED)
         }
       }
 
-      info.connectingAt = timestamp()
-
-      let peer = null
-
-      // Save the a tmpPeer just to be sure that is connecting and trying to get a peer instance
-      let tmpPeer = duplexify(through(), through())
-      this._addPeer(tmpPeer, info)
-
-      const mmst = this._mmsts.get(toHex(info.channel))
-
-      if (!mmst.shouldHandleIncoming()) {
-        request && request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
-        throw SignalClient.createError(ERR_MAX_PEERS_REACHED)
-      }
-
-      mmst.addConnection(info.id, tmpPeer)
-
-      if (request) {
-        ({ peer } = await request.accept({}, this._simplePeerOptions)) // Accept the incoming request
-      } else {
-        ({ peer } = await this.signal.connect(toHex(info.id), { channel: toHex(info.channel), connectingAt: info.connectingAt }, this._simplePeerOptions))
-      }
-
-      // Got a SimplePeer instance, we update the peer list
-      this._addPeer(pump(tmpPeer, peer), info)
-
-      this._bindPeerEvents(peer, info)
+      this._bindSocketEvents(peer)
 
       return peer
     } catch (err) {
-      const error = SignalClient.parseMetadataError(err)
+      error = SignalClient.parseMetadataError(err)
 
-      if (error.code === ERR_TIE_BREAKER) {
-        debug(`tie-breaker wins remotePeer: ${toHex(info.id)}`)
-        throw error
+      if (error.code === ERR_REMOTE_INVALID_CHANNEL) {
+        const candidates = this._candidates.get(toHex(peer.channel))
+        this._candidates.set(toHex(peer.channel), candidates.filter(candidate => !candidate.equals(peer.id)))
       }
 
-      this._deletePeer(info)
-      this.emit('connect-failed', error, info)
-      this.emit('error', error, info)
-
-      throw error
+      this.emit('connect-failed', error, peer.getInfo())
+      this.emit('error', error, peer.getInfo())
     }
+
+    await this._disconnectPeer(peer)
+    throw error
   }
 
-  _bindPeerEvents (peer, info) {
-    peer.on('error', err => {
+  _bindSocketEvents (peer) {
+    const { socket } = peer
+    const info = peer.getInfo()
+
+    socket.on('error', err => {
       debug('error', err)
       this.emit('connection-error', err, info)
     })
 
-    peer.on('connect', () => {
-      debug('connect', { peer, info })
-      delete peer.connectingAt
-
-      // race condition: if the connection already was created and we leave from the channel or close de swarm
-      if (this._isClosed(info.channel)) {
-        peer.destroy()
+    socket.on('connect', () => {
+      debug('connect', { peer })
+      if (this._isClosed(peer.channel)) {
+        peer.disconnect()
         return
       }
 
       if (!this._stream) {
-        this._handleConnection(peer, info)
+        this._handleConnection(socket, info)
         return
       }
 
       const conn = this._stream(info)
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
-      pump(peer, conn, peer)
+      pump(socket, conn, socket)
     })
 
-    peer.on('close', async () => {
-      debug('close', { peer, info })
-      const savedPeer = this._findPeer(info)
+    socket.on('close', () => {
+      debug('close', { peer })
 
-      if (savedPeer !== peer) {
-        // Old connection, we already have a new one.
-        debug('closing old-connection', { savedPeer, peer })
-        return
-      }
+      this._peers.delete(peer)
 
-      this._deletePeer(info)
+      socket.emit('end')
 
-      peer.emit('end')
-
-      this.emit('connection-closed', peer, info)
+      this.emit('connection-closed', socket, info)
     })
   }
 
@@ -394,19 +323,18 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async _updateCandidates (channel, peers) {
-    try {
-      if (!peers) {
-        const result = await this.signal.candidates({ channel: toHex(channel) })
-        peers = result.peers
-      }
-
-      this._candidates.set(toHex(channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
-    } catch (err) {
-      this.emit('error', err)
+    if (!peers) {
+      if (!this.signal.connected) return
+      const result = await this.signal.candidates({ channel: toHex(channel) })
+      peers = result.peers
     }
+
+    this._candidates.set(toHex(channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
   }
 
   async _run (channel) {
+    if (!this.signal.connected) return
+
     try {
       channel = toHex(channel)
       if (this._mmsts.has(channel) && !this._isClosed(channel)) {
@@ -414,30 +342,49 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
     } catch (err) {
       // nothing to do
-      console.log(err)
+      debug('run error', err.message)
     }
   }
 
   _lookup (channel) {
-    const stream = new Readable({
-      read () {},
+    const self = this
+
+    return new Readable({
+      read () {
+        this.push(self._candidates.get(channel) || [])
+        this.push(null)
+      },
       objectMode: true
     })
-
-    this._updateCandidates(channel).then(() => {
-      const candidates = this._candidates.get(channel) || []
-      stream.push(candidates)
-      stream.push(null)
-    }).catch(() => {
-      stream.push([])
-      stream.push(null)
-    })
-
-    return stream
   }
 
   async _connect (id, channel) {
-    return this._createConnection({ info: { id, channel: toBuffer(channel) } })
+    const peer = await this._createConnection({ id, channel })
+    return peer.socket
+  }
+
+  _checkForDuplicate (peer) {
+    const oldPeer = this.peers(peer.channel).find(p => p.id.equals(peer.id) && !p.connectionId.equals(peer.connectionId))
+    if (!oldPeer) {
+      return
+    }
+
+    const connections = [peer, oldPeer]
+
+    /**
+     * The first case is to have duplicate connections from the same origin (remote or local).
+     * In this case we do a sort by connectionId and destroy the first one.
+     */
+    if ((peer.initiator && oldPeer.initiator) || (!peer.initiator && !oldPeer.initiator)) {
+      return connections.sort((a, b) => Buffer.compare(a.connectionId, b.connectionId))[0]
+    }
+
+    /**
+     * The second case is to have duplicate connections where each connection is started from different origins.
+     * In this case we do a sort by peer id and destroy the first one.
+     */
+    const toDestroy = [this._id, peer.id].sort(Buffer.compare)[0]
+    return connections.find(p => p.id.equals(toDestroy))
   }
 }
 
