@@ -63,7 +63,7 @@ function createPeer () {
   })
 
   sw.on('error', (err, info) => {
-    console.log(err.code, info.id.toString('hex'))
+    //console.log(err.code, info.id.toString('hex'))
   })
 
   sw.join(Buffer.from('0011', 'hex'))
@@ -126,10 +126,18 @@ document.getElementById('remove-peer').addEventListener('click', () => {
   deletePeer()
 })
 
+const addMany = n => [...Array(n).keys()].forEach(() => createPeer())
+const deleteMany = n => [...Array(n).keys()].forEach(() => deletePeer())
+window.addMany = addMany
+window.deleteMany = deleteMany
+window.simulate = () => {
+  addMany(3)
+  deleteMany(2)
+}
 document.getElementById('add-many-peers').addEventListener('click', () => {
-  [...Array(25).keys()].forEach(() => createPeer())
+  addMany(25)
 })
 
 document.getElementById('remove-many-peers').addEventListener('click', () => {
-  [...Array(25).keys()].forEach(() => deletePeer())
+  deleteMany(25)
 })

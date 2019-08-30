@@ -107,7 +107,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         return task.destroy()
       }
 
-      if (this.peers(channel).length > 0) {
+      if (this.peers(channel).filter(p => p.connected).length > 0) {
         return
       }
 
@@ -176,7 +176,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       if (this._isClosed(channel)) return
 
       // Runs mst
-      await this._updateCandidates(channel)
+      await this._updateCandidates(channel, peers)
       await this._run(channel)
       this._scheduler.startTask(toHex(channel))
     })
@@ -248,6 +248,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       peer.connect(result.peer)
+
+      if (this._isClosed(peer.channel)) {
+        throw new SwarmError(ERR_INVALID_CHANNEL)
+      }
 
       if (request) {
         if (mmst.shouldHandleIncoming()) {
