@@ -235,7 +235,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         throw new SwarmError(ERR_INVALID_CHANNEL)
       }
 
-      if (request && !mmst.shouldHandleIncoming()) {
+      if (!mmst.shouldHandleIncoming()) {
         request && request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
         throw new SwarmError(ERR_MAX_PEERS_REACHED)
       }
