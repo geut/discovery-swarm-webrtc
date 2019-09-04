@@ -91,6 +91,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
 
     this._channels.add(channelStr)
+    this._candidates.set(channelStr, [])
 
     const mmst = new MMST({
       id: this._id,
@@ -112,6 +113,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       await this._updateCandidates(channel)
+
+      if (this._candidates.get(channelStr).length === 0) {
+        return 60 * 1000
+      }
+
       await this._run(channel)
     }, 10 * 1000)
 
