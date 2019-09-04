@@ -96,7 +96,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const mmst = new MMST({
       id: this._id,
       lookup: () => this._lookup(channelStr),
-      connect: (to) => this._connect(to, channelStr),
+      connect: (to) => this._createConnection({ id: to, channel: channelStr }),
       maxPeers: this._maxPeers,
       lookupTimeout: 5 * 1000
     })
@@ -248,6 +248,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       let result = null
       if (request) {
+        mmst.addConnection(peer.id, peer)
         result = await request.accept({}, this._simplePeerOptions) // Accept the incoming request
       } else {
         result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeerOptions)
@@ -257,14 +258,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       if (this._isClosed(peer.channel)) {
         throw new SwarmError(ERR_INVALID_CHANNEL)
-      }
-
-      if (request) {
-        if (mmst.shouldHandleIncoming()) {
-          mmst.addConnection(peer.id, peer.socket)
-        } else {
-          throw new SwarmError(ERR_MAX_PEERS_REACHED)
-        }
       }
 
       this._bindSocketEvents(peer)
@@ -318,8 +311,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       this._peers.delete(peer)
 
-      socket.emit('end')
-
       this.emit('connection-closed', socket, info)
     })
   }
@@ -366,11 +357,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       },
       objectMode: true
     })
-  }
-
-  async _connect (id, channel) {
-    const peer = await this._createConnection({ id, channel })
-    return peer.socket
   }
 
   _checkForDuplicate (peer) {
