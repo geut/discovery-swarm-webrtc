@@ -74,6 +74,7 @@ function createPeer () {
 }
 
 function deletePeer () {
+  if (peers.size === 0) return
   const peer = Array.from(peers.values()).reverse().pop()
   peers.delete(peer)
   deletedPeers.add(peer.id.toString('hex'))
