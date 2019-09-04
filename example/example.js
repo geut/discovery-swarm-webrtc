@@ -10,14 +10,25 @@ const peers = new Set()
 const deletedPeers = new Set()
 const connections = new Set()
 
-window.peers = peers
-
 bootstrap().then(draw)
 
 async function bootstrap () {
   let toSpawn = TO_SPAWN
   while (toSpawn--) {
     createPeer()
+  }
+}
+
+function findPeer(id) {
+  let peer = Array.from(peers.values()).find(p => p.id.toString('hex').includes(id))
+  if (peer) {
+    return peer
+  }
+
+  peer = Array.from(deletedPeers.values()).find(p => p.id.toString('hex').includes(id))
+  if (peer) {
+    peer.deleted = true
+    return peer
   }
 }
 
@@ -77,11 +88,10 @@ function deletePeer () {
   if (peers.size === 0) return
   const peer = Array.from(peers.values()).reverse().pop()
   peers.delete(peer)
-  deletedPeers.add(peer.id.toString('hex'))
+  deletedPeers.add(peer)
   G.addNode(peer.id.toString('hex'))
   peer.leave(Buffer.from('0011', 'hex'))
   peersTitle.innerHTML = peers.size
-  window.last = peer
 }
 
 function draw () {
@@ -94,7 +104,7 @@ function draw () {
     labels: (d) => d.node.slice(0, 4),
     nodeStyle: {
       fill: d => {
-        if (deletedPeers.has(d.node)) {
+        if (findPeer(d.node).deleted) {
           return 'red'
         }
 
@@ -102,7 +112,7 @@ function draw () {
       },
       strokeWidth: 4,
       stroke: (d) => {
-        if (deletedPeers.has(d.node)) {
+        if (findPeer(d.node).deleted) {
           return 'red'
         }
 
@@ -142,3 +152,5 @@ document.getElementById('add-many-peers').addEventListener('click', () => {
 document.getElementById('remove-many-peers').addEventListener('click', () => {
   deleteMany(25)
 })
+
+window.findPeer = findPeer

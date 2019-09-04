@@ -4,6 +4,7 @@ const crypto = require('crypto')
 
 const pump = require('pump')
 const MMST = require('mostly-minimal-spanning-tree')
+const debounce = require('debounce-promise')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
@@ -50,6 +51,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       connectionTimeout: opts.connectionTimeout
     })
 
+    this._updateCandidates = debounce(this._updateCandidates, 1000)
     this._initialize(opts)
   }
 
@@ -111,8 +113,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       if (this.peers(channel).filter(p => p.connected).length > 0) {
         return
       }
-
-      await this._updateCandidates(channel)
 
       if (this._candidates.get(channelStr).length === 0) {
         return 60 * 1000
@@ -348,15 +348,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _lookup (channel) {
-    const self = this
-
-    return new Readable({
-      read () {
-        this.push(self._candidates.get(channel) || [])
-        this.push(null)
-      },
+    const stream = new Readable({
+      read () { },
       objectMode: true
     })
+
+    this._updateCandidates(channel).then(() => {
+      stream.push(this._candidates.get(channel) || [])
+      stream.push(null)
+    }).catch(() => {
+      stream.push(this._candidates.get(channel) || [])
+      stream.push(null)
+    })
+
+    return stream
   }
 
   _checkForDuplicate (peer) {

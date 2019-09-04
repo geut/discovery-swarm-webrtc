@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
+    "debounce-promise": "^3.1.2",
     "debug": "^4.1.1",
     "duplexify": "^4.1.1",
     "end-of-stream": "^1.4.1",
