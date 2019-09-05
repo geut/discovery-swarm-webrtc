@@ -295,6 +295,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         return
       }
 
+      if (socket.destroyed) {
+        return
+      }
+
       if (!this._stream) {
         this._handleConnection(socket, info)
         return

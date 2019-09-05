@@ -9,7 +9,6 @@ const connectionsTitle = document.getElementById('connections-title')
 const peers = new Set()
 const deletedPeers = new Set()
 const connections = new Set()
-
 bootstrap().then(draw)
 
 async function bootstrap () {
@@ -56,6 +55,7 @@ function createPeer () {
   })
 
   sw.on('connection', (peer, info) => {
+    window.copen++
     try {
       const connection = getConnection(sw, info)
       connections.add(connection.join(':'))
