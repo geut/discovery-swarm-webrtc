@@ -32,19 +32,13 @@
   "dependencies": {
     "debounce-promise": "^3.1.2",
     "debug": "^4.1.1",
-    "duplexify": "^4.1.1",
-    "end-of-stream": "^1.4.1",
-    "inspect-custom-symbol": "^1.1.0",
     "minimist": "^1.2.0",
-    "monotonic-timestamp": "0.0.9",
     "mostly-minimal-spanning-tree": "git+https://github.com/RangerMauve/mostly-minimal-spanning-tree.git",
     "pump": "^3.0.0",
-    "simple-peer": "^9.5.0",
     "simple-signal-client": "^2.3.0",
     "simple-signal-server": "^2.1.1",
     "socket.io": "^2.2.0",
-    "socket.io-client": "^2.2.0",
-    "through2": "^3.0.1"
+    "socket.io-client": "^2.2.0"
   },
   "devDependencies": {
     "eslint": "^5.15.3",
