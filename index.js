@@ -100,7 +100,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       lookup: () => this._lookup(channelStr),
       connect: (to) => this._createConnection({ id: to, channel: channelStr }),
       maxPeers: this._maxPeers,
-      lookupTimeout: 5 * 1000
+      lookupTimeout: 5 * 1000,
+      percentFar: 0.5
     })
 
     this._mmsts.set(channelStr, mmst)
@@ -342,7 +343,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     try {
       channel = toHex(channel)
-      if (this._mmsts.has(channel) && !this._isClosed(channel)) {
+      if (!this._isClosed(channel)) {
         await this._mmsts.get(channel).run()
       }
     } catch (err) {

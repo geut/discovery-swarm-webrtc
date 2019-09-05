@@ -55,7 +55,6 @@ function createPeer () {
   })
 
   sw.on('connection', (peer, info) => {
-    window.copen++
     try {
       const connection = getConnection(sw, info)
       connections.add(connection.join(':'))
@@ -84,9 +83,14 @@ function createPeer () {
   return sw
 }
 
-function deletePeer () {
+function deletePeer (id) {
   if (peers.size === 0) return
-  const peer = Array.from(peers.values()).reverse().pop()
+  let peer
+  if (id) {
+    peer = findPeer(id)
+  } else {
+    peer = Array.from(peers.values())[Math.floor(Math.random() * peers.size)]
+  }
   peers.delete(peer)
   deletedPeers.add(peer)
   G.addNode(peer.id.toString('hex'))
@@ -139,12 +143,7 @@ document.getElementById('remove-peer').addEventListener('click', () => {
 
 const addMany = n => [...Array(n).keys()].forEach(() => createPeer())
 const deleteMany = n => [...Array(n).keys()].forEach(() => deletePeer())
-window.addMany = addMany
-window.deleteMany = deleteMany
-window.simulate = () => {
-  addMany(3)
-  deleteMany(2)
-}
+
 document.getElementById('add-many-peers').addEventListener('click', () => {
   addMany(25)
 })
@@ -153,4 +152,6 @@ document.getElementById('remove-many-peers').addEventListener('click', () => {
   deleteMany(25)
 })
 
+window.addPeer = addPeer
+window.deletePeer = deletePeer
 window.findPeer = findPeer
