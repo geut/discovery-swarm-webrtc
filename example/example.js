@@ -73,7 +73,7 @@ function createPeer () {
   })
 
   sw.on('error', (err, info) => {
-    //console.log(err.code, info.id.toString('hex'))
+    console.log(err.code, info.id.toString('hex'))
   })
 
   sw.join(Buffer.from('0011', 'hex'))

@@ -236,8 +236,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         throw new SwarmError(ERR_INVALID_CHANNEL)
       }
 
-      if (!mmst.shouldHandleIncoming()) {
-        request && request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
+      if (request && !mmst.shouldHandleIncoming()) {
+        request.reject({ code: ERR_REMOTE_MAX_PEERS_REACHED })
         throw new SwarmError(ERR_MAX_PEERS_REACHED)
       }
 
@@ -255,7 +255,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeerOptions)
       }
 
-      peer.connect(result.peer)
+      await peer.connect(result.peer)
 
       if (this._isClosed(peer.channel)) {
         throw new SwarmError(ERR_INVALID_CHANNEL)
