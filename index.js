@@ -205,9 +205,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     signal.on('info', data => this.emit('info', data))
 
-    this.signal.on('connect', () => {
+    signal.on('connect', () => {
       for (let channel of this._channels.keys()) {
-        this.signal.discover({ id: toHex(this._id), channel: toHex(channel) })
+        signal.discover({ id: toHex(this._id), channel: toHex(channel) })
       }
     })
   }
