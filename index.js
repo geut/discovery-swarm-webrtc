@@ -100,24 +100,29 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       lookup: () => this._lookup(channelStr),
       connect: (to) => this._createConnection({ id: to, channel: channelStr }),
       maxPeers: this._maxPeers,
-      lookupTimeout: 5 * 1000,
-      percentFar: 0.5
+      lookupTimeout: 5 * 1000
     })
 
     this._mmsts.set(channelStr, mmst)
 
+    let nopeers = false
+    mmst.on('nopeers', () => {
+      nopeers = true
+    })
     this._scheduler.addTask(channelStr, async (task) => {
       if (this._isClosed(channel)) {
         return task.destroy()
       }
 
-      if (this.peers(channel).filter(p => p.connected).length > 0) {
+      if (nopeers || this.peers(channel).filter(p => p.connected).length > 0) {
         return
       }
 
       if (this._candidates.get(channelStr).length === 0) {
         return 60 * 1000
       }
+
+      nopeers = false
 
       await this._run(channel)
     }, 10 * 1000)
