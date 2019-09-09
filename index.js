@@ -4,7 +4,7 @@ const crypto = require('crypto')
 
 const pump = require('pump')
 const MMST = require('mostly-minimal-spanning-tree')
-const debounce = require('debounce-promise')
+const debounce = require('p-debounce')
 
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
@@ -105,26 +105,14 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._mmsts.set(channelStr, mmst)
 
-    let nopeers = false
-    mmst.on('nopeers', () => {
-      nopeers = true
-    })
     this._scheduler.addTask(channelStr, async (task) => {
-      if (this._isClosed(channel)) {
-        return task.destroy()
-      }
-
-      if (nopeers || this.peers(channel).filter(p => p.connected).length > 0) {
-        return
-      }
-
-      if (this._candidates.get(channelStr).length === 0) {
-        return 60 * 1000
-      }
-
-      nopeers = false
+      if (this._isClosed(channel)) return task.destroy()
 
       await this._run(channel)
+
+      const connected = this.peers(channel)
+      const candidates = this._candidates.get(channelStr)
+      if (candidates.length === 0 || connected.length === candidates.length) return 60 * 1000
     }, 10 * 1000)
 
     if (this.signal.connected) {
@@ -187,10 +175,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       if (this._isClosed(channel)) return
 
-      // Runs mst
-      await this._updateCandidates(channel, peers)
       await this._run(channel)
-      this._scheduler.startTask(toHex(channel))
+      this._scheduler.startTask(channel)
     })
 
     signal.on('request', async (request) => {
@@ -333,18 +319,17 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.emit('connection', conn, info)
   }
 
-  async _updateCandidates (channel, peers) {
-    if (!peers) {
-      if (!this.signal.connected) return
-      const result = await this.signal.candidates({ channel: toHex(channel) })
-      peers = result.peers
-    }
+  async _updateCandidates (channel) {
+    if (!this.signal.connected) return
+
+    const { peers } = await this.signal.candidates({ channel: toHex(channel) })
 
     this._candidates.set(toHex(channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
   }
 
   async _run (channel) {
     if (!this.signal.connected) return
+    if (this.peers(toBuffer(channel)).filter(p => p.initiator).length > 0) return
 
     try {
       channel = toHex(channel)
@@ -359,7 +344,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   _lookup (channel) {
     const stream = new Readable({
-      read () { },
+      read () {},
       objectMode: true
     })
 
