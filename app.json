@@ -1,6 +1,5 @@
 {
 	"name": "discovery-signal-webrtc",
 	"description": "Signal server for discovery-swarm-webrtc.",
-	"repository": "https://github.com/geut/discovery-swarm-webrtc",
-  "template": "https://github.com/geut/discovery-swarm-webrtc/tree/new-webrtc-swarm"
+	"repository": "https://github.com/geut/discovery-swarm-webrtc"
 }
