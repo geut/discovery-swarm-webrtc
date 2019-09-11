@@ -23,8 +23,15 @@
     "type": "git",
     "url": "git+https://github.com/geut/discovery-swarm-webrtc.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "swarm",
+    "webrtc",
+    "geut"
+  ],
+  "author": {
+    "name": "GEUT",
+    "email": "contact@geutstudio.com"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/geut/discovery-swarm-webrtc/issues"
