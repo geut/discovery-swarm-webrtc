@@ -1,5 +1,9 @@
 # discovery-swarm-webrtc
-webrtc-swarm but with a similar API to discovery-swarm
+
+[![Build Status](https://travis-ci.com/geut/discovery-swarm-webrtc.svg?branch=add-mmst)](https://travis-ci.com/geut/discovery-swarm-webrtc)
+[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
+
+> webrtc-swarm but with a similar API to discovery-swarm
 
 This module provide a `stream` option to replicate across peers and a `join` method to connect to a channel.
 
