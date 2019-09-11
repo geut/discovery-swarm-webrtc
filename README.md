@@ -1,6 +1,6 @@
 # discovery-swarm-webrtc
 
-[![Build Status](https://travis-ci.com/geut/discovery-swarm-webrtc.svg?branch=add-mmst)](https://travis-ci.com/geut/discovery-swarm-webrtc)
+[![Build Status](https://travis-ci.com/geut/discovery-swarm-webrtc.svg?branch=tinchoz49/add-mmst)](https://travis-ci.com/geut/discovery-swarm-webrtc)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
 > webrtc-swarm but with a similar API to discovery-swarm
