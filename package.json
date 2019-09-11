@@ -13,10 +13,11 @@
     "discovery-signal-webrtc": "bin/index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\"",
+    "test": "jest --passWithNoTests",
     "posttest": "npm run lint",
     "lint": "eslint \"**/*.js\"",
-    "start": "node bin/index.js"
+    "start": "node bin/index.js",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
@@ -46,9 +47,20 @@
     "eslint-plugin-import": "^2.16.0",
     "eslint-plugin-node": "^8.0.1",
     "eslint-plugin-promise": "^4.0.1",
-    "eslint-plugin-standard": "^4.0.0"
+    "eslint-plugin-standard": "^4.0.0",
+    "get-port": "^5.0.0",
+    "jest": "^24.9.0",
+    "ngraph.graph": "^18.0.1",
+    "ngraph.path": "^1.2.0",
+    "wait-for-expect": "^2.0.0",
+    "wrtc": "^0.4.1"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "jest": {
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }

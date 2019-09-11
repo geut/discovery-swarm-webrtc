@@ -140,6 +140,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
 
     await Promise.all(this.peers(channel).map(async peer => this._disconnectPeer(peer)))
+    this.emit('leave', channel)
   }
 
   async close () {
@@ -321,10 +322,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   async _updateCandidates (channel) {
     if (!this.signal.connected) return
+    const channelStr = toHex(channel)
 
-    const { peers } = await this.signal.candidates({ channel: toHex(channel) })
+    const { peers } = await this.signal.candidates({ channel: channelStr })
 
-    this._candidates.set(toHex(channel), peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
+    this._candidates.set(channelStr, peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
+
+    this.emit('candidates-updated', toBuffer(channel), this._candidates.get(channelStr))
   }
 
   async _run (channel) {
