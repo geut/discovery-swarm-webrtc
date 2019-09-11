@@ -11,7 +11,7 @@ const log = debug('test:connectivity')
 debug.enable('test:connectivity')
 
 const MAX_NODES = 50
-const MIN_LINKS = 60
+const MIN_LINKS = 56
 const TIMEOUT = 30 * 1000
 
 jest.setTimeout(TIMEOUT)
@@ -91,7 +91,7 @@ afterEach(async () => {
 test(`graph connectivity for ${MAX_NODES} peers (minConnections=${MIN_LINKS})`, async () => {
   const swarms = [...Array(MAX_NODES).keys()].map(n => createSwarm(this.graph, this.topic, this.server.address().port))
 
-  log(`Waiting for a minimum amount of connections: ${MIN_LINKS}.`)
+  log(`Waiting for a minimum amount of ${MIN_LINKS} connections.`)
 
   await waitForExpect(() => {
     expect(this.graph.getLinksCount()).toBeGreaterThan(MIN_LINKS)
