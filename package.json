@@ -1,27 +1,74 @@
 {
   "name": "@geut/discovery-swarm-webrtc",
-  "version": "1.2.0",
-  "description": "webrtc-swarm but with a similar API to discovery-swarm",
+  "version": "2.0.0-alpha.19",
+  "description": "discovery-swarm for WebRTC.",
   "main": "index.js",
+  "files": [
+    "lib",
+    "bin",
+    "index.js",
+    "server.js"
+  ],
+  "bin": {
+    "discovery-signal-webrtc": "bin/index.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --passWithNoTests",
+    "posttest": "npm run lint",
+    "lint": "eslint \"**/*.js\"",
+    "start": "node bin/index.js",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/geut/discovery-swarm-webrtc.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "swarm",
+    "webrtc",
+    "geut"
+  ],
+  "author": {
+    "name": "GEUT",
+    "email": "contact@geutstudio.com"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/geut/discovery-swarm-webrtc/issues"
   },
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
+    "debug": "^4.1.1",
+    "minimist": "^1.2.0",
+    "mostly-minimal-spanning-tree": "git+https://github.com/RangerMauve/mostly-minimal-spanning-tree.git",
+    "p-debounce": "^2.1.0",
     "pump": "^3.0.0",
-    "webrtc-swarm": "^2.9.0"
+    "simple-signal-client": "^2.3.0",
+    "simple-signal-server": "^2.1.1",
+    "socket.io": "^2.2.0",
+    "socket.io-client": "^2.2.0"
+  },
+  "devDependencies": {
+    "@geut/chan": "^2.1.1",
+    "eslint": "^5.15.3",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "get-port": "^5.0.0",
+    "jest": "^24.9.0",
+    "ngraph.graph": "^18.0.1",
+    "ngraph.path": "^1.2.0",
+    "wait-for-expect": "^2.0.0",
+    "wrtc": "^0.4.1"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "jest": {
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }

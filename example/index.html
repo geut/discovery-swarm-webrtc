@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Example WebRTC Swarm Visualizer</title>
+  <style>
+    body, html {
+      margin: 0px;
+      padding: 0px;
+    }
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <h3>Peers: <span id="peers-title">0</span></h3>
+  <h3>Connections: <span id="connections-title">0</span></h3>
+  <button id="add-peer">Add peer</button>
+  <button id="remove-peer">Remove Peer</button>
+  <br/>
+  <button id="add-many-peers">Add 25 peers</button>
+  <button id="remove-many-peers">Remove 25 peer</button>
+  <main id="canvas"></main>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="./example.js"></script>
+</body>
+</html>
