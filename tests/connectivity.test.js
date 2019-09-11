@@ -10,8 +10,8 @@ const debug = require('debug')
 const log = debug('test:connectivity')
 debug.enable('test:connectivity')
 
-const MAX_NODES = 100
-const MIN_LINKS = 120
+const MAX_NODES = 50
+const MIN_LINKS = 60
 const TIMEOUT = 30 * 1000
 
 jest.setTimeout(TIMEOUT)
