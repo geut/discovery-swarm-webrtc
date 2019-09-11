@@ -9,7 +9,7 @@ This module provides a "similar" API to discovery-swarm but for WebRTC connectio
 
 It has a few differences to discovery-swarm:
 
-- It needs a signaling server. We give you [one](server).
+- It needs a signaling server. We give you [one](#server).
 - It uses [mmst](https://github.com/RangerMauve/mostly-minimal-spanning-tree) to minimize the connections. Check the example.
 - `join` and `leave` only accepts Buffers.
 - `leave` and `close` returns a Promise.
