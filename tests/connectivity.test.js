@@ -29,7 +29,7 @@ const getConnection = (sw, info) => {
 const createSwarm = (graph, topic, port) => {
   const sw = swarm({
     bootstrap: [`localhost:${port}`],
-    simplePeerOptions: {
+    simplePeer: {
       wrtc
     }
   })

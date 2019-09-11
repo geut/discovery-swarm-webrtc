@@ -55,7 +55,6 @@ function createPeer () {
   })
 
   sw.on('connection', (peer, info) => {
-    console.log('entraaa')
     try {
       const connection = getConnection(sw, info)
       connections.add(connection.join(':'))
@@ -65,7 +64,6 @@ function createPeer () {
   })
 
   sw.on('connection-closed', (peer, info) => {
-    console.log('close')
     try {
       const connection = getConnection(sw, info)
       connections.delete(connection.join(':'))

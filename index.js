@@ -30,7 +30,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._stream = opts.stream
 
-    this._simplePeerOptions = opts.simplePeerOptions
+    this._simplePeer = opts.simplePeer
 
     this._peers = new Set()
 
@@ -48,7 +48,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this.signal = new SignalClient({
       bootstrap: opts.bootstrap,
-      connectionTimeout: opts.connectionTimeout
+      connectionTimeout: opts.connectionTimeout || 10 * 1000,
+      requestTimeout: opts.requestTimeout || 5 * 1000
     })
 
     this._updateCandidates = debounce(this._updateCandidates, 1000)
@@ -242,9 +243,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       let result = null
       if (request) {
         mmst.addConnection(peer.id, peer)
-        result = await request.accept({}, this._simplePeerOptions) // Accept the incoming request
+        result = await request.accept({}, this._simplePeer) // Accept the incoming request
       } else {
-        result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeerOptions)
+        result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeer)
       }
 
       await peer.connect(result.peer)
