@@ -1,7 +1,7 @@
 {
   "name": "@geut/discovery-swarm-webrtc",
   "version": "2.0.0-alpha.19",
-  "description": "webrtc-swarm but with a similar API to discovery-swarm",
+  "description": "discovery-swarm for WebRTC.",
   "main": "index.js",
   "files": [
     "lib",
