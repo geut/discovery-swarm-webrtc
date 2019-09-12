@@ -151,18 +151,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._destroyed = true
 
+    await this.signal.disconnect()
     this._scheduler.clearTasks()
     this._mmsts.forEach(mmst => mmst.destroy())
     this._mmsts.clear()
-    this.signal.destroy()
     this._channels.clear()
     this._candidates.clear()
-    this._peers.clear()
 
-    return new Promise(resolve => process.nextTick(() => {
-      this.emit('close')
-      resolve()
-    }))
+    await Promise.all(this.peers().map(async peer => this._disconnectPeer(peer)))
+
+    this.emit('close')
   }
 
   info (...args) {

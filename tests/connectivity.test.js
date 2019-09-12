@@ -28,7 +28,7 @@ const getConnection = (sw, info) => {
 
 const createSwarm = (graph, topic, port) => {
   const sw = swarm({
-    bootstrap: [`localhost:${port}`],
+    bootstrap: [`http://localhost:${port}`],
     simplePeer: {
       wrtc
     }
@@ -94,7 +94,7 @@ test(`graph connectivity for ${MAX_NODES} peers (minConnections=${MIN_LINKS})`, 
   log(`Waiting for a minimum amount of ${MIN_LINKS} connections.`)
 
   await waitForExpect(() => {
-    expect(this.graph.getLinksCount()).toBeGreaterThan(MIN_LINKS)
+    expect(this.graph.getLinksCount()).toBeGreaterThanOrEqual(MIN_LINKS)
   }, Math.floor(TIMEOUT / 2), 1 * 1000)
 
   log(`Testing connectivity for ${this.graph.getNodesCount()} peers.`)
