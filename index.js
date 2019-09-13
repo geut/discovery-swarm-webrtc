@@ -145,10 +145,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   async close () {
-    if (this._destroyed) {
-      return
-    }
-
+    if (this._destroyed) return
     this._destroyed = true
 
     await this.signal.disconnect()

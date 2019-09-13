@@ -17,6 +17,7 @@
     "parcel-bundler": "^1.12.3"
   },
   "dependencies": {
-    "jsnetworkx": "^0.3.4"
+    "force-graph": "^1.18.2",
+    "ngraph.graph": "^18.0.1"
   }
 }

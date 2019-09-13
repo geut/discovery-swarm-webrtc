@@ -1,148 +1,28 @@
-const jsnx = require('jsnetworkx')
-const swarm = require('..')
+const createGraph = require('ngraph.graph')
+const ForceGraph = require('force-graph').default
+const { addPeer: _addPeer, removePeer: _removePeer } = require('../tests/helpers/peers')
+const { nodesToArray } = require('../tests/helpers/graph')
 
-const TO_SPAWN = 2
+const MAX_PEERS = 2
+const TOPIC = Buffer.from('batman')
 
-const G = new jsnx.DiGraph()
+const graph = createGraph()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
-const peers = new Set()
-const deletedPeers = new Set()
-const connections = new Set()
-bootstrap().then(draw)
-
-async function bootstrap () {
-  let toSpawn = TO_SPAWN
-  while (toSpawn--) {
-    createPeer()
-  }
-}
-
-function findPeer (id) {
-  let peer = Array.from(peers.values()).find(p => p.id.toString('hex').includes(id))
-  if (peer) {
-    return peer
-  }
-
-  peer = Array.from(deletedPeers.values()).find(p => p.id.toString('hex').includes(id))
-  if (peer) {
-    peer.deleted = true
-    return peer
-  }
-}
-
-function addPeer (peer) {
-  if (!peers.has(peer)) {
-    peers.add(peer)
-    G.addNode(peer.id.toString('hex'))
-    peersTitle.innerHTML = peers.size
-  }
-}
-
-function getConnection (sw, info) {
-  const connection = [sw.id.toString('hex'), info.id.toString('hex')]
-
-  if (info.initiator) {
-    return connection
-  }
-
-  return connection.reverse()
-}
-
-function createPeer () {
-  const sw = swarm({
-    bootstrap: ['localhost:4000']
-  })
-
-  sw.on('connection', (peer, info) => {
-    try {
-      const connection = getConnection(sw, info)
-      connections.add(connection.join(':'))
-      G.addEdge(connection[0], connection[1])
-    } catch (err) {}
-    connectionsTitle.innerHTML = connections.size
-  })
-
-  sw.on('connection-closed', (peer, info) => {
-    try {
-      const connection = getConnection(sw, info)
-      connections.delete(connection.join(':'))
-      G.removeEdge(connection[0], connection[1])
-    } catch (err) {}
-    connectionsTitle.innerHTML = connections.size
-  })
-
-  sw.on('error', (err, info) => {
-    console.log(err.code, info.id.toString('hex'))
-  })
-
-  sw.join(Buffer.from('0011', 'hex'))
-
-  addPeer(sw)
-
-  return sw
-}
-
-function deletePeer (id) {
-  if (peers.size === 0) return
-  let peer
-  if (id) {
-    peer = findPeer(id)
-  } else {
-    peer = Array.from(peers.values())[Math.floor(Math.random() * peers.size)]
-  }
-  peers.delete(peer)
-  deletedPeers.add(peer)
-  G.addNode(peer.id.toString('hex'))
-  peer.leave(Buffer.from('0011', 'hex'))
-  peersTitle.innerHTML = peers.size
-}
-
-function draw () {
-  jsnx.draw(G, {
-    element: '#canvas',
-    layoutAttr: {
-      linkDistance: 100
-    },
-    withLabels: true,
-    labels: (d) => d.node.slice(0, 4),
-    nodeStyle: {
-      fill: d => {
-        if (findPeer(d.node).deleted) {
-          return 'red'
-        }
-
-        return 'white'
-      },
-      strokeWidth: 4,
-      stroke: (d) => {
-        if (findPeer(d.node).deleted) {
-          return 'red'
-        }
-
-        const mostSignificant = parseInt(d.node.slice(0, 2), 16)
-        const percent = mostSignificant / 255
-        const hue = percent * 360
-        return `hsl(${hue}, 100%, 50%)`
-      }
-    },
-    nodeAttr: {
-      r: 16
-    },
-    stickyDrag: true
-  }, true)
-}
+const addPeer = () => _addPeer(graph, TOPIC, {
+  bootstrap: ['http://localhost:4000']
+})
+const removePeer = (id) => _removePeer(graph, id)
+const addMany = n => [...Array(n).keys()].forEach(() => addPeer())
+const deleteMany = n => [...Array(n).keys()].forEach(() => removePeer())
 
 document.getElementById('add-peer').addEventListener('click', () => {
-  createPeer()
+  addPeer()
 })
 
 document.getElementById('remove-peer').addEventListener('click', () => {
-  deletePeer()
+  removePeer()
 })
-
-const addMany = n => [...Array(n).keys()].forEach(() => createPeer())
-const deleteMany = n => [...Array(n).keys()].forEach(() => deletePeer())
 
 document.getElementById('add-many-peers').addEventListener('click', () => {
   addMany(25)
@@ -152,6 +32,50 @@ document.getElementById('remove-many-peers').addEventListener('click', () => {
   deleteMany(25)
 })
 
-window.addPeer = addPeer
-window.deletePeer = deletePeer
-window.findPeer = findPeer
+const view = ForceGraph()(document.getElementById('graph'))
+
+view
+  .d3Force('center', null)
+  .linkDirectionalParticles(2)
+  .nodeVal(4)
+  .nodeLabel('id')
+  .nodeColor(node => node.destroyed ? 'red' : null)
+  .graphData({ nodes: [], links: [] })
+
+graph.on('changed', (changes) => {
+  peersTitle.innerHTML = nodesToArray(graph).filter(n => !n.data._destroyed).length
+  connectionsTitle.innerHTML = graph.getLinksCount()
+  const { nodes: oldNodes, links: oldLinks } = view.graphData()
+
+  const newNodes = []
+  const newLinks = []
+  changes.forEach(({ changeType, node, link }) => {
+    if (changeType === 'add') {
+      if (node) {
+        newNodes.push({ id: node.id })
+      } else {
+        newLinks.push({ source: link.fromId, target: link.toId })
+      }
+      return
+    }
+
+    if (changeType === 'remove') {
+      if (node) {
+        const toDelete = oldNodes.find(n => n.id === node.id)
+        toDelete.destroyed = true
+      } else {
+        const toDelete = oldLinks.findIndex(n => n.source.id === link.fromId && n.target.id === link.toId)
+        if (toDelete !== -1) oldLinks.splice(toDelete, 1)
+      }
+    }
+  })
+
+  view.graphData({
+    nodes: [...oldNodes, ...newNodes],
+    links: [...oldLinks, ...newLinks]
+  })
+})
+
+for (let i = 0; i < MAX_PEERS; i++) {
+  addPeer()
+}

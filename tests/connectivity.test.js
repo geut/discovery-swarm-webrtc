@@ -5,8 +5,9 @@ const waitForExpect = require('wait-for-expect')
 const getPort = require('get-port')
 const wrtc = require('wrtc')
 
-const swarm = require('..')
 const debug = require('debug')
+const { addPeer } = require('./helpers/peers')
+
 const log = debug('test:connectivity')
 debug.enable('test:connectivity')
 
@@ -16,57 +17,16 @@ const TIMEOUT = 30 * 1000
 
 jest.setTimeout(TIMEOUT)
 
-const getConnection = (sw, info) => {
-  const connection = [sw.id.toString('hex'), info.id.toString('hex')]
-
-  if (info.initiator) {
-    return connection
-  }
-
-  return connection.reverse()
-}
-
-const createSwarm = (graph, topic, port) => {
-  const sw = swarm({
-    bootstrap: [`http://localhost:${port}`],
-    simplePeer: {
-      wrtc
-    }
-  })
-
-  sw.on('connection', (_, info) => {
-    const [ nodeOne, nodeTwo ] = getConnection(sw, info)
-    if (!graph.hasLink(nodeOne, nodeTwo)) {
-      graph.addLink(nodeOne, nodeTwo)
-    }
-  })
-
-  sw.on('connection-closed', (_, info) => {
-    const [ nodeOne, nodeTwo ] = getConnection(sw, info)
-    graph.removeLink(nodeOne, nodeTwo)
-  })
-
-  sw.on('close', () => {
-    graph.removeNode(sw.id.toString('hex'))
-  })
-
-  graph.addNode(sw.id.toString('hex'), sw)
-
-  sw.join(topic)
-
-  return sw
-}
-
 beforeAll(async () => {
   this.server = require('http').createServer()
   const io = require('socket.io')(this.server)
 
   require('../server')({ io })
 
-  const port = await getPort()
+  this.port = await getPort()
 
-  return new Promise(resolve => this.server.listen(port, () => {
-    log('discovery-signal-webrtc running on %s', port)
+  return new Promise(resolve => this.server.listen(this.port, () => {
+    log('discovery-signal-webrtc running on %s', this.port)
     resolve()
   }))
 })
@@ -89,7 +49,16 @@ afterEach(async () => {
 })
 
 test(`graph connectivity for ${MAX_NODES} peers (minConnections=${MIN_LINKS})`, async () => {
-  const swarms = [...Array(MAX_NODES).keys()].map(n => createSwarm(this.graph, this.topic, this.server.address().port))
+  const swarms = [...Array(MAX_NODES).keys()].map(n => addPeer(
+    this.graph,
+    this.topic,
+    {
+      bootstrap: [`http://localhost:${this.port}`],
+      simplePeer: {
+        wrtc
+      }
+    }
+  ))
 
   log(`Waiting for a minimum amount of ${MIN_LINKS} connections.`)
 
