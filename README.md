@@ -86,6 +86,12 @@ Leave from specific channel. Destroy all the connections and leave the channel.
 
 Close the entire swarm. Destroy all the connections and disconnect from the signal.
 
+#### `sw.peers(channel?) -> [Peer]`
+
+Returns the list of peers for a specific channel.
+
+Channel is `optional`, if you don't pass it you get the entire list of peers.
+
 ### Events
 
 #### `sw.on('handshaking', function(connection, info) { ... })`
