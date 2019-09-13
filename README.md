@@ -122,6 +122,12 @@ Emitted when the candidates peer for a specific channel was updated. `candidates
 
 :busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/moleculer-browser/blob/master/CONTRIBUTING.md).
 
+## Sponsored By
+
+[
+<img src="https://d33wubrfki0l68.cloudfront.net/4f6804cf76b6552ddb15a6c3cc4faf16114977ea/64559/images/wireline-hero-large.svg" alt="Wireline" style="width: 350px;">
+](https://www.wireline.io/)
+
 ## License
 
 MIT © A [**GEUT**](http://geutstudio.com/) project
