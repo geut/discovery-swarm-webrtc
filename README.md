@@ -5,9 +5,9 @@
 
 > discovery-swarm for webrtc
 
-<div style="text-align: center;">
+<p align="center">
   <img src="https://user-images.githubusercontent.com/819446/64871056-d6a2d480-d61a-11e9-9d93-b79a5f0e822a.gif" alt="force-graph">
-</div>
+</p>
 
 This module provides a "similar" API to discovery-swarm but for WebRTC connections.
 
