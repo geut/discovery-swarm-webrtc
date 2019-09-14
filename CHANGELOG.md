@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [2.0.0] - 2019-09-13
 ### Added
 - mmst algorhitm to reduce and optimize WebRTC connections.
 - timeout for connections and requests.
@@ -15,3 +17,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - move signal websocket logic outside to provide a clean signal API.
 
 ## 1.0.0 - 2019-09-11 [YANKED]
+[Unreleased]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v1.0.0...v2.0.0
