@@ -86,7 +86,7 @@ Leave from specific channel. Destroy all the connections and leave the channel.
 
 Close the entire swarm. Destroy all the connections and disconnect from the signal.
 
-#### `sw.peers(channel?) -> [Peer]`
+#### `sw.getPeers(channel?) -> [Peer]`
 
 Returns the list of peers for a specific channel.
 
@@ -115,6 +115,10 @@ Emitted when you have fully connected to another peer. Info is an object that co
 #### `sw.on('connection-closed', function(connection, info) { ... })`
 
 Emitted when you've disconnected from a peer. Info is an object that contains info about the connection.
+
+#### `sw.on('leave', function(channel) { ... })`
+
+Emitted when you left a channel.
 
 #### `sw.on('close', function() { ... })`
 
