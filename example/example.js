@@ -1,6 +1,6 @@
 const createGraph = require('ngraph.graph')
 const ForceGraph = require('force-graph').default
-const { addPeer: _addPeer, removePeer: _removePeer } = require('../tests/helpers/peers')
+const { addPeer: _addPeer, removePeer: _removePeer, findPeer } = require('../tests/helpers/peers')
 const { nodesToArray } = require('../tests/helpers/graph')
 
 const MAX_PEERS = 2
@@ -15,6 +15,8 @@ const addPeer = () => _addPeer(graph, TOPIC, {
 const removePeer = (id) => _removePeer(graph, id)
 const addMany = n => [...Array(n).keys()].forEach(() => addPeer())
 const deleteMany = n => [...Array(n).keys()].forEach(() => removePeer())
+
+window.findPeer = id => findPeer(graph, id)
 
 document.getElementById('add-peer').addEventListener('click', () => {
   addPeer()

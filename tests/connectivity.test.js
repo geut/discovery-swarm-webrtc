@@ -73,5 +73,6 @@ test(`graph connectivity for ${MAX_NODES} peers (minConnections=${MIN_LINKS})`, 
   this.graph.forEachNode(function (node) {
     if (node.id === fromId) return
     expect(pathFinder.find(fromId, node.id).length).toBeGreaterThan(0)
+    expect(node.data.getPeers().find(peer => !peer.socket)).toBeUndefined()
   })
 })

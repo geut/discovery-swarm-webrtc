@@ -10,7 +10,7 @@ const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 const Peer = require('./lib/peer')
 const Scheduler = require('./lib/scheduler')
-const { toHex, toBuffer, SwarmError } = require('./lib/utils')
+const { toHex, SwarmError } = require('./lib/utils')
 
 const ERR_MAX_PEERS_REACHED = 'ERR_MAX_PEERS_REACHED'
 const ERR_INVALID_CHANNEL = 'ERR_INVALID_CHANNEL'
@@ -24,7 +24,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     super()
     debug('opts', opts)
 
-    console.assert(Array.isArray(opts.bootstrap) && opts.bootstrap.length > 0, 'An array of bootstrap urls is required.')
+    console.assert(Array.isArray(opts.bootstrap) && opts.bootstrap.length > 0, 'The `bootstrap` options is required.')
+    console.assert(!opts.id || Buffer.isBuffer(opts.id), 'The `id` option needs to be a Buffer.')
 
     this._id = opts.id || crypto.randomBytes(32)
 
@@ -34,7 +35,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._peers = new Set()
 
-    this._channels = new Set()
+    this._channels = new Map()
 
     this._mmsts = new Map()
 
@@ -52,7 +53,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       requestTimeout: opts.requestTimeout || 5 * 1000
     })
 
-    this._updateCandidates = debounce(this._updateCandidates, 1000)
+    this._updateCandidates = debounce(this._updateCandidates, 500)
     this._initialize(opts)
   }
 
@@ -61,18 +62,18 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   get connecting () {
-    return this.peers().filter(peer => !peer.connected).length
+    return this.getPeers().filter(peer => !peer.connected).length
   }
 
   get connected () {
-    return this.peers().filter(peer => peer.connected).length
+    return this.getPeers().filter(peer => peer.connected).length
   }
 
   listen () {
     // Empty method to respect the API of discovery-swarm
   }
 
-  peers (channel) {
+  getPeers (channel) {
     console.assert(!channel || Buffer.isBuffer(channel))
 
     const peers = Array.from(this._peers.values())
@@ -84,6 +85,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     return peers
   }
 
+  getCandidates (channel) {
+    console.assert(!channel || Buffer.isBuffer(channel))
+    return this._candidates.get(toHex(channel)) || { list: [], lastUpdate: 0 }
+  }
+
   join (channel) {
     console.assert(Buffer.isBuffer(channel))
 
@@ -93,13 +99,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       return
     }
 
-    this._channels.add(channelStr)
-    this._candidates.set(channelStr, [])
+    this._channels.set(channelStr, channel)
 
     const mmst = new MMST({
       id: this._id,
-      lookup: () => this._lookup(channelStr),
-      connect: (to) => this._createConnection({ id: to, channel: channelStr }),
+      lookup: () => this._lookup(channel),
+      connect: (to) => this._createConnection(to, channel),
       maxPeers: this._maxPeers,
       lookupTimeout: 5 * 1000
     })
@@ -111,13 +116,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       await this._run(channel)
 
-      const connected = this.peers(channel)
-      const candidates = this._candidates.get(channelStr)
-      if (candidates.length === 0 || connected.length === candidates.length) return 60 * 1000
+      const connected = this.getPeers(channel)
+      const { list } = this.getCandidates(channel)
+      if (list.length === 0 || connected.length === list.length) return 30 * 1000
     }, 10 * 1000)
 
     if (this.signal.connected) {
-      this.signal.discover({ id: toHex(this._id), channel: channelStr })
+      this.signal.discover(this._id, channel)
     }
   }
 
@@ -135,12 +140,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     // We need to notify to the signal that we our leaving
     try {
-      await this.signal.leave({ id: toHex(this._id), channel: channelStr })
+      await this.signal.leave(this._id, channel)
     } catch (err) {
       // Nothing to do.
     }
 
-    await Promise.all(this.peers(channel).map(async peer => this._disconnectPeer(peer)))
+    await Promise.all(this.getPeers(channel).map(async peer => this._disconnectPeer(peer)))
     this.emit('leave', channel)
   }
 
@@ -155,7 +160,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._channels.clear()
     this._candidates.clear()
 
-    await Promise.all(this.peers().map(async peer => this._disconnectPeer(peer)))
+    await Promise.all(this.getPeers().map(async peer => this._disconnectPeer(peer)))
 
     this.emit('close')
   }
@@ -168,19 +173,20 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const signal = this.signal
 
     signal.on('discover', async ({ peers, channel }) => {
-      debug('discover', { peers, channel })
+      debug('discover', { channel })
 
       if (this._isClosed(channel)) return
 
+      await this._updateCandidates(channel, peers)
       await this._run(channel)
-      this._scheduler.startTask(channel)
+      this._scheduler.startTask(toHex(channel))
     })
 
     signal.on('request', async (request) => {
-      const { initiator: id, metadata: { channel, connectionId } } = request
+      const { initiator: id, channel } = request
 
       try {
-        await this._createConnection({ request, id, channel, connectionId })
+        await this._createConnection(id, channel, request)
       } catch (err) {
         // nothing to do
       }
@@ -189,9 +195,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('info', data => this.emit('info', data))
 
     signal.on('connect', () => {
-      for (let channel of this._channels.keys()) {
-        signal.discover({ id: toHex(this._id), channel: toHex(channel) })
-      }
+      this._channels.forEach(channel => {
+        signal.discover(this._id, channel)
+      })
     })
   }
 
@@ -204,9 +210,9 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     return !this._channels.has(toHex(channel))
   }
 
-  async _createConnection ({ request, id, channel, connectionId }) {
-    const peer = new Peer(toBuffer(id), toBuffer(channel), {
-      connectionId: connectionId && toBuffer(connectionId),
+  async _createConnection (id, channel, request) {
+    const peer = new Peer(id, channel, {
+      connectionId: request && request.connectionId,
       initiator: !request
     })
 
@@ -214,10 +220,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     debug(`createConnection from ${request ? 'request' : 'connect'}`, { request, info: peer.printInfo() })
 
-    let error = null
+    let disconnectForError = null
 
     try {
-      const mmst = this._mmsts.get(toHex(peer.channel))
+      const mmst = this._getMMST(peer.channel)
 
       if (this._isClosed(peer.channel)) {
         request && request.reject({ code: ERR_REMOTE_INVALID_CHANNEL })
@@ -235,15 +241,15 @@ class DiscoverySwarmWebrtc extends EventEmitter {
         throw new SwarmError(ERR_CONNECTION_DUPLICATED)
       }
 
-      let result = null
+      let socket = null
       if (request) {
         mmst.addConnection(peer.id, peer)
-        result = await request.accept({}, this._simplePeer) // Accept the incoming request
+        socket = await request.accept({}, this._simplePeer) // Accept the incoming request
       } else {
-        result = await this.signal.connect(toHex(peer.id), { channel: toHex(peer.channel), connectionId: toHex(peer.connectionId) }, this._simplePeer)
+        socket = await this.signal.connect(peer, this._simplePeer)
       }
 
-      await peer.connect(result.peer)
+      await peer.setSocket(socket)
 
       if (this._isClosed(peer.channel)) {
         throw new SwarmError(ERR_INVALID_CHANNEL)
@@ -253,19 +259,19 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       return peer
     } catch (err) {
-      error = SignalClient.parseMetadataError(err)
+      disconnectForError = err
 
-      if (error.code === ERR_REMOTE_INVALID_CHANNEL) {
-        const candidates = this._candidates.get(toHex(peer.channel))
-        this._candidates.set(toHex(peer.channel), candidates.filter(candidate => !candidate.equals(peer.id)))
+      if (err.code === ERR_REMOTE_INVALID_CHANNEL) {
+        // Remove a candidate.
+        const candidates = this.getCandidates(peer.channel)
+        candidates.list = candidates.filter(candidate => !candidate.equals(peer.id))
       }
 
-      this.emit('connect-failed', error, peer.getInfo())
-      this.emit('error', error, peer.getInfo())
+      this.emit('connect-failed', err, peer.getInfo())
     }
 
     await this._disconnectPeer(peer)
-    throw error
+    this.emit('error', disconnectForError, peer.getInfo())
   }
 
   _bindSocketEvents (peer) {
@@ -316,30 +322,44 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.emit('connection', conn, info)
   }
 
-  async _updateCandidates (channel) {
+  async _updateCandidates (channel, peers) {
     if (!this.signal.connected) return
-    const channelStr = toHex(channel)
 
-    const { peers } = await this.signal.candidates({ channel: channelStr })
+    // We try to minimize how many times we get candidates from the signal.
+    const { lastUpdate } = this.getCandidates(channel)
+    const newUpdate = Date.now()
+    if (newUpdate - lastUpdate < 5 * 1000) return
 
-    this._candidates.set(channelStr, peers.map(id => toBuffer(id)).filter(id => !id.equals(this._id)))
+    let list = []
+    if (peers) {
+      list = peers
+    } else {
+      list = await this.signal.candidates(this.id, channel)
+    }
 
-    this.emit('candidates-updated', toBuffer(channel), this._candidates.get(channelStr))
+    list = list.filter(id => !id.equals(this._id))
+
+    this._candidates.set(toHex(channel), { lastUpdate: Date.now(), list })
+
+    this.emit('candidates-updated', channel, list)
   }
 
   async _run (channel) {
     if (!this.signal.connected) return
-    if (this.peers(toBuffer(channel)).filter(p => p.initiator).length > 0) return
+    if (this.getPeers(channel).filter(p => p.initiator).length > 0) return
 
     try {
-      channel = toHex(channel)
       if (!this._isClosed(channel)) {
-        await this._mmsts.get(channel).run()
+        await this._getMMST(channel).run()
       }
     } catch (err) {
       // nothing to do
       debug('run error', err.message)
     }
+  }
+
+  _getMMST (channel) {
+    return this._mmsts.get(toHex(channel))
   }
 
   _lookup (channel) {
@@ -349,10 +369,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     this._updateCandidates(channel).then(() => {
-      stream.push(this._candidates.get(channel) || [])
+      stream.push(this.getCandidates(channel).list)
       stream.push(null)
     }).catch(() => {
-      stream.push(this._candidates.get(channel) || [])
+      stream.push(this.getCandidates(channel).list)
       stream.push(null)
     })
 
@@ -360,7 +380,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _checkForDuplicate (peer) {
-    const oldPeer = this.peers(peer.channel).find(p => p.id.equals(peer.id) && !p.connectionId.equals(peer.connectionId))
+    const oldPeer = this.getPeers(peer.channel).find(p => p.id.equals(peer.id) && !p.connectionId.equals(peer.connectionId))
     if (!oldPeer) {
       return
     }

@@ -1,5 +1,6 @@
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalServer = require('./lib/signal-server')
+const { toHex, toBuffer } = require('./lib/utils')
 
 class SignalSwarmServer extends SignalServer {
   constructor ({ io }) {
@@ -10,68 +11,87 @@ class SignalSwarmServer extends SignalServer {
     this._initialize()
   }
 
+  getPeers (channel) {
+    const channelStr = toHex(channel)
+    let peers = new Map()
+
+    if (this.channels.has(toHex(channelStr))) {
+      peers = this.channels.get(channelStr)
+    } else {
+      this.channels.set(channelStr, peers)
+    }
+
+    return peers
+  }
+
   _initialize () {
     this.on('discover', (request) => {
-      const { id } = request.socket
-      const { id: peerId, channel: channelName } = request.discoveryData
+      try {
+        const { id: socketId } = request.socket
+        const { id, channel } = request.discoveryData
 
-      let channel = new Map()
+        const peers = this.getPeers(channel)
 
-      if (this.channels.has(channelName)) {
-        channel = this.channels.get(channelName)
-      } else {
-        this.channels.set(channelName, channel)
+        peers.set(socketId, id)
+
+        debug(`discover: ${toHex(id)} channel: ${toHex(channel)}`)
+
+        request.discover(id, { peers: Array.from(peers.values()), channel })
+      } catch (err) {
+        console.error(err)
       }
-
-      channel.set(id, peerId)
-
-      debug(`discover: ${peerId} channel: ${channelName}`)
-
-      // Add the peer to the channelName room.
-      request.socket.join(channelName)
-
-      request.discover(peerId, { peers: Array.from(channel.values()), channel: channelName })
     })
 
     this.on('disconnect', (socket) => {
-      const { id } = socket
-      this.channels.forEach((channel, channelName) => {
-        const peerId = channel.get(id)
-        if (peerId && channel.delete(id)) {
-          debug(`disconnect: ${peerId} channel: ${channelName}`)
-          this.emit('peer:leave', { id, channel: channelName, peerId })
-        }
-      })
+      try {
+        const { id: socketId } = socket
+
+        this.channels.forEach((peers, channelStr) => {
+          const id = peers.get(socketId)
+          if (id && peers.delete(socketId)) {
+            debug(`disconnect: ${toHex(id)} channel: ${channelStr}`)
+            this.emit('peer:leave', { socket, id, channel: toBuffer(channelStr) })
+          }
+        })
+      } catch (err) {
+        console.error(err)
+      }
     })
 
     this.on('request', (request) => {
-      debug(request.initiator, ' -> ', request.target)
+      debug(toHex(request.initiator), ' -> ', toHex(request.target))
       request.forward() // forward all requests to connect
     })
 
     this.on('candidates', request => {
-      const { channel: channelName } = request.discoveryData
+      try {
+        const { channel } = request.discoveryData
 
-      const channel = this.channels.get(channelName) || new Map()
+        const peers = this.getPeers(channel)
 
-      return request.forward({ peers: Array.from(channel.values()), channel: channelName })
+        return request.forward({ peers: Array.from(peers.values()), channel })
+      } catch (err) {
+        console.error(err)
+      }
+
+      return request.forward({ peers: [] })
     })
 
     this.on('leave', request => {
-      const { id } = request.socket
+      try {
+        const { id: socketId } = request.socket
 
-      const { channel: channelName } = request.discoveryData
+        const { channel } = request.discoveryData
 
-      if (!this.channels.has(channelName)) {
-        return request.forward()
-      }
+        const peers = this.getPeers(channel)
 
-      const channel = this.channels.get(channelName)
-
-      const peerId = channel.get(id)
-      if (peerId && channel.delete(id)) {
-        debug(`leave: ${peerId} channel: ${channelName}`)
-        this.emit('peer:leave', { socket: request.socket, id, channel: channelName, peerId })
+        const id = peers.get(socketId)
+        if (id && peers.delete(socketId)) {
+          debug(`leave: ${toHex(id)} channel: ${toHex(channel)}`)
+          this.emit('peer:leave', { socket: request.socket, id, channel })
+        }
+      } catch (err) {
+        console.error(err)
       }
 
       return request.forward()
