@@ -17,7 +17,7 @@
     "posttest": "npm run lint",
     "lint": "eslint \"**/*.js\"",
     "start": "node bin/index.js",
-    "version": "chan release ${npm_package_version} && git add .",
+    "version": "chan release --allow-yanked ${npm_package_version} && git add .",
     "prepublishOnly": "npm test"
   },
   "repository": {
