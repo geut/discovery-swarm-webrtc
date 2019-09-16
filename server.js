@@ -1,6 +1,5 @@
 const debug = require('debug')('discovery-swarm-webrtc')
 const SignalServer = require('./lib/signal-server')
-const { toHex, toBuffer } = require('./lib/utils')
 
 class SignalSwarmServer extends SignalServer {
   constructor ({ io }) {
@@ -12,13 +11,12 @@ class SignalSwarmServer extends SignalServer {
   }
 
   getPeers (channel) {
-    const channelStr = toHex(channel)
     let peers = new Map()
 
-    if (this.channels.has(toHex(channelStr))) {
-      peers = this.channels.get(channelStr)
+    if (this.channels.has(channel)) {
+      peers = this.channels.get(channel)
     } else {
-      this.channels.set(channelStr, peers)
+      this.channels.set(channel, peers)
     }
 
     return peers
@@ -34,7 +32,7 @@ class SignalSwarmServer extends SignalServer {
 
         peers.set(socketId, id)
 
-        debug(`discover: ${toHex(id)} channel: ${toHex(channel)}`)
+        debug(`discover: ${id} channel: ${channel}`)
 
         request.discover(id, { peers: Array.from(peers.values()), channel })
       } catch (err) {
@@ -46,11 +44,11 @@ class SignalSwarmServer extends SignalServer {
       try {
         const { id: socketId } = socket
 
-        this.channels.forEach((peers, channelStr) => {
+        this.channels.forEach((peers, channel) => {
           const id = peers.get(socketId)
           if (id && peers.delete(socketId)) {
-            debug(`disconnect: ${toHex(id)} channel: ${channelStr}`)
-            this.emit('peer:leave', { socket, id, channel: toBuffer(channelStr) })
+            debug(`disconnect: ${id} channel: ${channel}`)
+            this.emit('peer:leave', { socket, id, channel })
           }
         })
       } catch (err) {
@@ -59,7 +57,7 @@ class SignalSwarmServer extends SignalServer {
     })
 
     this.on('request', (request) => {
-      debug(toHex(request.initiator), ' -> ', toHex(request.target))
+      debug(request.initiator, ' -> ', request.target)
       request.forward() // forward all requests to connect
     })
 
@@ -87,7 +85,7 @@ class SignalSwarmServer extends SignalServer {
 
         const id = peers.get(socketId)
         if (id && peers.delete(socketId)) {
-          debug(`leave: ${toHex(id)} channel: ${toHex(channel)}`)
+          debug(`leave: ${id} channel: ${channel}`)
           this.emit('peer:leave', { socket: request.socket, id, channel })
         }
       } catch (err) {
