@@ -36,7 +36,7 @@ $ discovery-signal-webrtc --port=4000
 
 #### Deploy to Heroku
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/geut/discovery-swarm-webrtc/tree/master)
 
 ### Client
 
