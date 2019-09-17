@@ -130,16 +130,15 @@ Emitted when the candidates peer for a specific channel was updated. `candidates
 
 ## <a name="issues"></a> Issues
 
-:bug: If you found an issue we encourage you to report it on [github](https://github.com/geut/moleculer-browser/issues). Please specify your OS and the actions to reproduce it.
+:bug: If you found an issue we encourage you to report it on [github](https://github.com/geut/discovery-swarm-webrtc/issues). Please specify your OS and the actions to reproduce it.
 
 ## <a name="contribute"></a> Contributing
 
-:busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/moleculer-browser/blob/master/CONTRIBUTING.md).
+:busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/discovery-swarm-webrtc/blob/master/CONTRIBUTING.md).
 
 ## Sponsored By
-
 [
-<img src="https://d33wubrfki0l68.cloudfront.net/4f6804cf76b6552ddb15a6c3cc4faf16114977ea/64559/images/wireline-hero-large.svg" alt="Wireline" style="width: 350px;">
+<img src="https://d33wubrfki0l68.cloudfront.net/4f6804cf76b6552ddb15a6c3cc4faf16114977ea/64559/images/wireline-hero-large.svg" alt="Wireline" width="350px" />
 ](https://www.wireline.io/)
 
 ## License
