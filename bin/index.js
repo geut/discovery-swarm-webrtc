@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
-const server = require('http').createServer()
+const server = require('http').createServer((_, res) => {
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'text/plain')
+  res.end('Signal running OK\n')
+})
 const io = require('socket.io')(server)
 
 require('../server')({ io })
