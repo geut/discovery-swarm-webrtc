@@ -36,7 +36,7 @@ $ discovery-signal-webrtc --port=4000
 
 #### Public Servers
 
-- [https://geut-webrtc-signal.herokuapp.com/]
+- https://geut-webrtc-signal.herokuapp.com/
 
 #### Deploy to Heroku
 
