@@ -16,7 +16,7 @@ It has a few differences to discovery-swarm:
 - It needs a signaling server. We give you [one](#server).
 - It uses [mmst](https://github.com/RangerMauve/mostly-minimal-spanning-tree) to minimize the connections. Check the example.
 - `join` and `leave` only accepts Buffers.
-- `leave` and `close` returns a Promise.
+- `leave` and `close` accepts a callback argument or returns a Promise.
 
 ## Install
 
@@ -78,15 +78,15 @@ Creates a new Swarm.
 
 Join a specific channel. We use behind it `simple-signal` + `simple-peer`.
 
-#### `sw.leave(Buffer) -> Promise`
+#### `const promise = sw.leave(Buffer)`
 
 Leave from specific channel. Destroy all the connections and leave the channel.
 
-#### `sw.close() -> Promise`
+#### `const promise = sw.close([callback])`
 
 Close the entire swarm. Destroy all the connections and disconnect from the signal.
 
-#### `sw.getPeers(channel?) -> [Peer]`
+#### `const arrayOfPeers = sw.getPeers([channel])`
 
 Returns the list of peers for a specific channel.
 

@@ -10,7 +10,7 @@ const debug = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 const Peer = require('./lib/peer')
 const Scheduler = require('./lib/scheduler')
-const { toHex, SwarmError } = require('./lib/utils')
+const { toHex, SwarmError, callbackPromise, resolveCallback } = require('./lib/utils')
 
 const ERR_MAX_PEERS_REACHED = 'ERR_MAX_PEERS_REACHED'
 const ERR_INVALID_CHANNEL = 'ERR_INVALID_CHANNEL'
@@ -126,7 +126,21 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
   }
 
-  async leave (channel) {
+  leave (channel, cb = callbackPromise()) {
+    resolveCallback(this._leave(channel), cb)
+    return cb.promise
+  }
+
+  close (cb = callbackPromise()) {
+    resolveCallback(this._close(), cb)
+    return cb.promise
+  }
+
+  info (...args) {
+    return this.signal.info(...args)
+  }
+
+  async _leave (channel) {
     console.assert(Buffer.isBuffer(channel))
 
     // Account for buffers being passed in
@@ -149,7 +163,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.emit('leave', channel)
   }
 
-  async close () {
+  async _close () {
     if (this._destroyed) return
     this._destroyed = true
 
@@ -163,10 +177,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     await Promise.all(this.getPeers().map(async peer => this._disconnectPeer(peer)))
 
     this.emit('close')
-  }
-
-  info (...args) {
-    return this.signal.info(...args)
   }
 
   _initialize () {

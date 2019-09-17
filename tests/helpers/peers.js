@@ -64,7 +64,9 @@ const removePeer = (graph, id) => {
     peer = nodes[Math.floor(Math.random() * nodes.length)]
   }
 
-  peer.data.close()
+  peer.data.close(err => {
+    if (err) console.log(err)
+  })
 }
 
 module.exports = { addPeer, findPeer, removePeer }
