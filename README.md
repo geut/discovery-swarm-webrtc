@@ -34,6 +34,10 @@ You can run your own signal server by running:
 $ discovery-signal-webrtc --port=4000
 ```
 
+#### Public Servers
+
+- [https://geut-webrtc-signal.herokuapp.com/]
+
 #### Deploy to Heroku
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/geut/discovery-swarm-webrtc/tree/master)
