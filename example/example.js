@@ -37,7 +37,6 @@ document.getElementById('remove-many-peers').addEventListener('click', () => {
 const view = ForceGraph()(document.getElementById('graph'))
 
 view
-  .d3Force('center', null)
   .linkDirectionalParticles(2)
   .nodeVal(4)
   .nodeLabel('id')
