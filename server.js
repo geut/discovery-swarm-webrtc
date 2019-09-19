@@ -10,12 +10,14 @@ class SignalSwarmServer extends SignalServer {
     this._initialize()
   }
 
-  getPeers (channel) {
+  getPeers (channel, create = false) {
+    if (!channel) throw new Error('Channel is required.')
+
     let peers = new Map()
 
     if (this.channels.has(channel)) {
       peers = this.channels.get(channel)
-    } else {
+    } else if (create) {
       this.channels.set(channel, peers)
     }
 
@@ -28,7 +30,7 @@ class SignalSwarmServer extends SignalServer {
         const { id: socketId } = request.socket
         const { id, channel } = request.discoveryData
 
-        const peers = this.getPeers(channel)
+        const peers = this.getPeers(channel, true)
 
         peers.set(socketId, id)
 
