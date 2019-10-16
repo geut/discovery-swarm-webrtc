@@ -17,14 +17,14 @@ const addPeer = (graph, topic, swarmOptions) => {
   graph.addNode(sw.id.toString('hex'), sw)
 
   sw.on('connection', (_, info) => {
-    const [ nodeOne, nodeTwo ] = getConnection(sw, info)
+    const [nodeOne, nodeTwo] = getConnection(sw, info)
     if (!graph.hasLink(nodeOne, nodeTwo)) {
       graph.addLink(nodeOne, nodeTwo)
     }
   })
 
   sw.on('connection-closed', (_, info) => {
-    const [ nodeOne, nodeTwo ] = getConnection(sw, info)
+    const [nodeOne, nodeTwo] = getConnection(sw, info)
     if (graph.hasLink(nodeOne, nodeTwo)) {
       graph.removeLink(graph.getLink(nodeOne, nodeTwo))
     }
