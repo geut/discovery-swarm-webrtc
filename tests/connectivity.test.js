@@ -1,73 +1,78 @@
+const test = require('tape')
 const crypto = require('crypto')
 const createGraph = require('ngraph.graph')
 const createGraphPath = require('ngraph.path')
-const waitForExpect = require('wait-for-expect')
 const getPort = require('get-port')
 const wrtc = require('wrtc')
 
-const debug = require('debug')
 const { addPeer } = require('./helpers/peers')
-
-const log = debug('test:connectivity')
-debug.enable('test:connectivity')
 
 const MAX_NODES = 50
 const TIMEOUT = 30 * 1000
 
-jest.setTimeout(TIMEOUT)
-
-beforeAll(async () => {
-  this.server = require('http').createServer()
-  const io = require('socket.io')(this.server)
+const startServer = async () => {
+  const server = require('http').createServer()
+  const io = require('socket.io')(server)
 
   require('../server')({ io })
 
-  this.port = await getPort()
+  const port = await getPort()
 
-  return new Promise(resolve => this.server.listen(this.port, () => {
-    log('discovery-signal-webrtc running on %s', this.port)
-    resolve()
+  return new Promise(resolve => server.listen(port, () => {
+    resolve({ server, url: `http://localhost:${port}` })
   }))
-})
+}
 
-afterAll(() => {
-  return new Promise(resolve => this.server.close(resolve))
-})
-
-beforeEach(() => {
-  this.graph = createGraph()
-  this.topic = crypto.randomBytes(32)
-})
-
-afterEach(async () => {
+const close = async (server, graph) => {
   const wait = []
-  this.graph.forEachNode(node => {
+  graph.forEachNode(node => {
     wait.push(node.data.close())
   })
-  return Promise.all(wait)
-})
+  await Promise.all(wait)
+  return new Promise(resolve => server.close(resolve))
+}
 
-test(`graph connectivity for ${MAX_NODES} peers.`, async () => {
+test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
+  t.timeoutAfter(TIMEOUT)
+
+  const graph = createGraph()
+  const topic = crypto.randomBytes(32)
+  const { server, url } = await startServer(t)
+
+  t.comment(`discovery-signal-webrtc running on ${url}`)
+
   const swarms = [...Array(MAX_NODES).keys()].map(n => addPeer(
-    this.graph,
-    this.topic,
+    graph,
+    topic,
     {
-      bootstrap: [`http://localhost:${this.port}`],
+      bootstrap: [url],
       simplePeer: {
         wrtc
       }
     }
   ))
 
-  log(`Testing connectivity for ${this.graph.getNodesCount()} peers.`)
+  t.comment(`Testing connectivity for ${graph.getNodesCount()} peers`)
 
-  await waitForExpect(() => {
-    const pathFinder = createGraphPath.aStar(this.graph)
-    const fromId = swarms[0].id.toString('hex')
-    this.graph.forEachNode(function (node) {
+  const pathFinder = createGraphPath.aStar(graph)
+  const fromId = swarms[0].id.toString('hex')
+  let end = false
+
+  t.equal(graph.getNodesCount(), MAX_NODES, `Should have ${MAX_NODES} nodes`)
+
+  while (!end) {
+    let found = true
+    graph.forEachNode(function (node) {
       if (node.id === fromId) return
-      expect(pathFinder.find(fromId, node.id).length).toBeGreaterThan(0)
-      expect(node.data.getPeers().find(peer => !peer.socket)).toBeUndefined()
+      found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().find(peer => !peer.socket) === undefined)
     })
-  }, TIMEOUT, 10 * 1000)
+    end = found
+    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+  }
+
+  t.comment('Full network connection.')
+
+  await close(server, graph)
+
+  t.end()
 })
