@@ -281,7 +281,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     }
 
     await this._disconnectPeer(peer)
-    debug('error', disconnectForError, peer.getInfo());
+    debug('error', disconnectForError, peer.getInfo())
     this.emit('error', disconnectForError, peer.getInfo())
   }
 
