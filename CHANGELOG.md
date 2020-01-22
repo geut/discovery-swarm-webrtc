@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2.2.6 - 2020-01-22 [YANKED]
+
 ## 2.2.5 - 2020-01-08 [YANKED]
 
 ## 2.2.4 - 2019-10-16 [YANKED]
@@ -40,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - move signal websocket logic outside to provide a clean signal API.
 
 ## 1.0.0 - 2019-09-11 [YANKED]
-[Unreleased]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.2.5...HEAD
+[Unreleased]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.2.6...HEAD
 [2.2.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.1.1...v2.2.0
 [2.1.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v1.0.0...v2.0.0
