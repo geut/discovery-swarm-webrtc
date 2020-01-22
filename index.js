@@ -6,7 +6,7 @@ const pump = require('pump')
 const MMST = require('mostly-minimal-spanning-tree')
 const debounce = require('p-debounce')
 
-const debug = require('debug')('discovery-swarm-webrtc')
+const log = require('debug')('discovery-swarm-webrtc')
 const SignalClient = require('./lib/signal-client')
 const Peer = require('./lib/peer')
 const Scheduler = require('./lib/scheduler')
@@ -22,7 +22,7 @@ const ERR_REMOTE_CONNECTION_DUPLICATED = 'ERR_REMOTE_CONNECTION_DUPLICATED'
 class DiscoverySwarmWebrtc extends EventEmitter {
   constructor (opts = {}) {
     super()
-    debug('opts', opts)
+    log('opts', opts)
 
     console.assert(Array.isArray(opts.bootstrap) && opts.bootstrap.length > 0, 'The `bootstrap` options is required.')
     console.assert(!opts.id || Buffer.isBuffer(opts.id), 'The `id` option needs to be a Buffer.')
@@ -182,8 +182,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   _initialize () {
     const signal = this.signal
 
+    // It would log the errors and prevent of throw it.
+    this.on('error', (...args) => log('error', ...args))
+
+    signal.on('error', err => this.emit('error', err))
+
     signal.on('discover', async ({ peers, channel }) => {
-      debug('discover', { channel })
+      log('discover', { channel })
 
       if (this._isClosed(channel)) return
 
@@ -228,9 +233,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     this._peers.add(peer)
 
-    debug(`createConnection from ${request ? 'request' : 'connect'}`, { request, info: peer.printInfo() })
-
-    let disconnectForError = null
+    log(`createConnection from ${request ? 'request' : 'connect'}`, { request, info: peer.printInfo() })
 
     try {
       const mmst = this._getMMST(peer.channel)
@@ -269,8 +272,6 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
       return peer
     } catch (err) {
-      disconnectForError = err
-
       if (err.code === ERR_REMOTE_INVALID_CHANNEL) {
         // Remove a candidate.
         const candidates = this.getCandidates(peer.channel)
@@ -278,11 +279,10 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       this.emit('connect-failed', err, peer.getInfo())
+      await this._disconnectPeer(peer).catch(err => this.emit('error', err, peer.getInfo()))
+      this.emit('error', err, peer.getInfo())
+      throw err
     }
-
-    await this._disconnectPeer(peer)
-    debug('error', disconnectForError, peer.getInfo())
-    this.emit('error', disconnectForError, peer.getInfo())
   }
 
   _bindSocketEvents (peer) {
@@ -290,12 +290,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     const info = peer.getInfo()
 
     socket.on('error', err => {
-      debug('error', err)
+      log('error', err)
       this.emit('connection-error', err, info)
     })
 
     socket.on('connect', () => {
-      debug('connect', { peer })
+      log('connect', { peer })
       if (this._isClosed(peer.channel)) {
         peer.disconnect()
         return
@@ -317,7 +317,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     })
 
     socket.on('close', () => {
-      debug('close', { peer })
+      log('close', { peer })
 
       this._peers.delete(peer)
 
@@ -365,7 +365,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
     } catch (err) {
       // nothing to do
-      debug('run error', err.message)
+      log('run error', err.message)
     }
   }
 
