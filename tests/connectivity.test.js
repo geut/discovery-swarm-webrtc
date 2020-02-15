@@ -67,7 +67,7 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
       found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().find(peer => !peer.socket) === undefined)
     })
     end = found
-    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+    await new Promise(resolve => setTimeout(resolve, 10 * 1000))
   }
 
   t.comment('Full network connection.')
