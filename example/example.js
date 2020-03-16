@@ -17,6 +17,7 @@ const removePeer = (id) => _removePeer(graph, id)
 const addMany = n => [...Array(n).keys()].forEach(() => addPeer())
 const deleteMany = n => [...Array(n).keys()].forEach(() => removePeer())
 
+window.graph = graph
 window.findPeer = id => findPeer(graph, id)
 
 document.getElementById('add-peer').addEventListener('click', () => {

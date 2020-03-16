@@ -46,7 +46,7 @@
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
     "pump": "^3.0.0",
-    "socket-signal-websocket": "^1.0.3"
+    "socket-signal-websocket": "^1.0.4"
   },
   "devDependencies": {
     "@geut/chan": "^2.1.1",
