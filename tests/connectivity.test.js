@@ -8,7 +8,7 @@ const { SocketSignalWebsocketServer } = require('socket-signal-websocket')
 
 const { addPeer } = require('./helpers/peers')
 
-const MAX_NODES = 30
+const MAX_NODES = 15
 const TIMEOUT = 30 * 1000
 
 const startServer = async () => {
