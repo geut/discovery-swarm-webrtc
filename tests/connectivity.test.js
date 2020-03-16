@@ -4,6 +4,7 @@ const createGraph = require('ngraph.graph')
 const createGraphPath = require('ngraph.path')
 const getPort = require('get-port')
 const wrtc = require('wrtc')
+const { SimpleWebsocketServer } = require('nanosignal')
 
 const { addPeer } = require('./helpers/peers')
 
@@ -12,14 +13,13 @@ const TIMEOUT = 30 * 1000
 
 const startServer = async () => {
   const server = require('http').createServer()
-  const io = require('socket.io')(server)
 
-  require('../server')({ io })
+  const signal = new SimpleWebsocketServer({ server })
 
   const port = await getPort()
 
   return new Promise(resolve => server.listen(port, () => {
-    resolve({ server, url: `http://localhost:${port}` })
+    resolve({ server, signal, url: `http://localhost:${port}` })
   }))
 }
 
@@ -64,7 +64,7 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
     let found = true
     graph.forEachNode(function (node) {
       if (node.id === fromId) return
-      found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().find(peer => !peer.socket) === undefined)
+      found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
     })
     end = found
     await new Promise(resolve => setTimeout(resolve, 5 * 1000))

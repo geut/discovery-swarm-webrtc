@@ -41,15 +41,15 @@
   "dependencies": {
     "debug": "^4.1.1",
     "delay": "^4.3.0",
+    "end-of-stream": "^1.4.4",
     "minimist": "^1.2.0",
     "mostly-minimal-spanning-tree": "^1.0.1",
+    "nanocustomassert": "^1.0.0",
+    "nanoerror": "^1.1.0",
     "p-debounce": "^2.1.0",
     "p-forever": "^2.1.0",
     "pump": "^3.0.0",
-    "simple-signal-client": "^2.3.1",
-    "simple-signal-server": "^2.1.1",
-    "socket.io": "^2.2.0",
-    "socket.io-client": "^2.2.0"
+    "socket-signal-websocket": "^1.0.0"
   },
   "devDependencies": {
     "@geut/chan": "^2.1.1",

@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
+const { SocketSignalWebsocketServer } = require('socket-signal-websocket')
+
 const server = require('http').createServer((_, res) => {
   res.statusCode = 200
   res.setHeader('Content-Type', 'text/plain')
   res.end('Signal running OK\n')
 })
-const io = require('socket.io')(server)
 
-require('../server')({ io })
+const signal = new SocketSignalWebsocketServer({ server })
+signal.on('error', (err) => console.error('signal-error', err))
+signal.on('connection-error', (err) => console.error('connection-error', err))
+signal.on('rpc-error', (err) => console.error('rpc-error', err))
+
 const argv = require('minimist')(process.argv.slice(2))
 
 if (argv.help || argv.h) {
