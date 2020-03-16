@@ -8,7 +8,7 @@ const server = require('http').createServer((_, res) => {
   res.end('Signal running OK\n')
 })
 
-const signal = new SocketSignalWebsocketServer({ server })
+const signal = new SocketSignalWebsocketServer({ server, requestTimeout: 10 * 1000 })
 signal.on('error', (err) => console.error('signal-error', err))
 signal.on('connection-error', (err) => console.error('connection-error', err))
 signal.on('rpc-error', (err) => console.error('rpc-error', err))

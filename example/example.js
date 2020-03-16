@@ -11,7 +11,7 @@ const graph = createGraph()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
 const addPeer = () => _addPeer(graph, TOPIC, {
-  bootstrap: ['ws://localhost:4000']
+  bootstrap: ['ws://localhost:4000', 'ws://localhost:5000']
 })
 const removePeer = (id) => _removePeer(graph, id)
 const addMany = n => [...Array(n).keys()].forEach(() => addPeer())

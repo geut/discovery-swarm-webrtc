@@ -40,16 +40,13 @@
   "homepage": "https://github.com/geut/discovery-swarm-webrtc#readme",
   "dependencies": {
     "debug": "^4.1.1",
-    "delay": "^4.3.0",
     "end-of-stream": "^1.4.4",
     "minimist": "^1.2.0",
-    "mostly-minimal-spanning-tree": "^1.0.1",
+    "mostly-minimal-spanning-tree": "git+https://github.com/tinchoz49/mostly-minimal-spanning-tree.git#tinchoz49/queue",
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
-    "p-debounce": "^2.1.0",
-    "p-forever": "^2.1.0",
     "pump": "^3.0.0",
-    "socket-signal-websocket": "^1.0.0"
+    "socket-signal-websocket": "^1.0.3"
   },
   "devDependencies": {
     "@geut/chan": "^2.1.1",

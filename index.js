@@ -27,10 +27,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.signal = signal || new MMSTSignalClient({
       id: this.id,
       bootstrap,
-      timeout,
       maxPeers,
+      requestTimeout: timeout,
+      queueTimeout: timeout,
+      lookupTimeout: timeout,
+      mmstTimeout: timeout * 2,
       createConnection: peer => this._createConnection(peer),
-      simplePeer
+      simplePeer,
+      reconnectingWebsocket: {
+        connectionTimeout: timeout
+      }
     })
 
     this._maxPeers = maxPeers

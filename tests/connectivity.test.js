@@ -4,17 +4,17 @@ const createGraph = require('ngraph.graph')
 const createGraphPath = require('ngraph.path')
 const getPort = require('get-port')
 const wrtc = require('wrtc')
-const { SimpleWebsocketServer } = require('nanosignal')
+const { SocketSignalWebsocketServer } = require('socket-signal-websocket')
 
 const { addPeer } = require('./helpers/peers')
 
-const MAX_NODES = 50
+const MAX_NODES = 30
 const TIMEOUT = 30 * 1000
 
 const startServer = async () => {
   const server = require('http').createServer()
 
-  const signal = new SimpleWebsocketServer({ server })
+  const signal = new SocketSignalWebsocketServer({ server, requestTimeout: 10 * 1000 })
 
   const port = await getPort()
 
@@ -61,13 +61,13 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   t.equal(graph.getNodesCount(), MAX_NODES, `Should have ${MAX_NODES} nodes`)
 
   while (!end) {
+    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
     let found = true
     graph.forEachNode(function (node) {
       if (node.id === fromId) return
       found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
     })
     end = found
-    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
   }
 
   t.comment('Full network connection.')
