@@ -16,14 +16,14 @@ signal.on('rpc-error', (err) => console.error('rpc-error', err))
 const argv = require('minimist')(process.argv.slice(2))
 
 if (argv.help || argv.h) {
-  console.log('discovery-signal-webrtc --port|-p 4000')
+  console.log('discovery-swarm-webrtc --port|-p 4000')
   process.exit(1)
 }
 
 const port = process.env.PORT || argv.port || argv.p || 4000
 
 server.listen(port, () => {
-  console.log('discovery-signal-webrtc running on %s', port)
+  console.log('discovery-swarm-webrtc running on %s', port)
 })
 
 process.on('unhandledRejection', function (err) {

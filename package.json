@@ -10,7 +10,7 @@
     "server.js"
   ],
   "bin": {
-    "discovery-signal-webrtc": "bin/index.js"
+    "discovery-swarm-webrtc": "bin/index.js"
   },
   "scripts": {
     "test": "tape \"tests/*.test.js\"",

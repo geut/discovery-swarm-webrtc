@@ -39,7 +39,7 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   const topic = crypto.randomBytes(32)
   const { server, url } = await startServer(t)
 
-  t.comment(`discovery-signal-webrtc running on ${url}`)
+  t.comment(`discovery-swarm-webrtc running on ${url}`)
 
   const swarms = [...Array(MAX_NODES).keys()].map(n => addPeer(
     graph,

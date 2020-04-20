@@ -31,7 +31,7 @@ $ npm install @geut/discovery-swarm-webrtc
 You can run your own signal server by running:
 
 ```
-$ discovery-signal-webrtc --port=4000
+$ discovery-swarm-webrtc --port=4000
 ```
 
 #### Public Servers
