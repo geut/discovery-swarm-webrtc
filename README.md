@@ -45,13 +45,18 @@ $ discovery-swarm-webrtc --port=4000
 ### Client
 
 ```javascript
+const crypto = require('crypto')
 const swarm = require('@geut/discovery-swarm-webrtc')
 
 const sw = swarm({
-  bootstrap: ['localhost:4000']
+  bootstrap: ['ws://localhost:4000']
 })
 
-sw.join(Buffer.from('some-topic'))
+const topic = crypto.createHash('sha256')
+  .update('my-discovery-swarm-topic')
+  .digest()
+
+sw.join(topic)
 
 sw.on('connection', peer => {
   // connected
