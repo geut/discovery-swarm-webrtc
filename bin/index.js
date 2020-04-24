@@ -5,13 +5,14 @@ const server = require('http').createServer((_, res) => {
   res.setHeader('Content-Type', 'text/plain')
   res.end('Signal running OK\n')
 })
-const io = require('socket.io')(server)
+const argv = require('minimist')(process.argv.slice(2))
+const cookie = argv.cookie === false ? argv.cookie : 'io'
+const io = require('socket.io')(server, { cookie: argv.cookie })
 
 require('../server')({ io })
-const argv = require('minimist')(process.argv.slice(2))
 
 if (argv.help || argv.h) {
-  console.log('discovery-signal-webrtc --port|-p 4000')
+  console.log('discovery-signal-webrtc --port|-p 4000 [--no-cookie]')
   process.exit(1)
 }
 
