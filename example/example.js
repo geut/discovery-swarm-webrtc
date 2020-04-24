@@ -10,9 +10,24 @@ const TOPIC = crypto.randomBytes(32)
 const graph = createGraph()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
-const addPeer = () => _addPeer(graph, TOPIC, {
-  bootstrap: ['ws://localhost:4000', 'ws://localhost:5000']
-})
+function random (min, max) {
+  return Math.floor(Math.random() * (max - min)) + min
+}
+const urls = [
+  { url: 'ws://localhost:4000', color: 'green' },
+  { url: 'ws://localhost:4001', color: 'black' },
+  { url: 'ws://localhost:4002', color: 'blue' },
+  { url: 'ws://localhost:4003', color: 'yellow' },
+  { url: 'ws://localhost:4004', color: 'cyan' }
+]
+const addPeer = () => {
+  const url = urls[random(0, urls.length)]
+  const peer = _addPeer(graph, TOPIC, {
+    bootstrap: [url.url]
+  })
+  peer.color = url.color
+  return peer
+}
 const removePeer = (id) => _removePeer(graph, id)
 const addMany = n => [...Array(n).keys()].forEach(() => addPeer())
 const deleteMany = n => [...Array(n).keys()].forEach(() => removePeer())
@@ -42,7 +57,9 @@ view
   .linkDirectionalParticles(2)
   .nodeVal(4)
   .nodeLabel('id')
-  .nodeColor(node => node.destroyed ? 'red' : null)
+  .nodeColor(node => {
+    return node.destroyed ? 'red' : findPeer(graph, node.id).data.color
+  })
   .graphData({ nodes: [], links: [] })
 
 graph.on('changed', (changes) => {
