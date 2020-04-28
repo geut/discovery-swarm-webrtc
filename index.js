@@ -115,14 +115,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
     try {
       const duplicate = this._checkForDuplicate(peer)
-      if (duplicate) {
-        if (duplicate === peer) {
-          // current incoming connection
-          throw new ERR_CONNECTION_DUPLICATED(toHex(this.id), toHex(peer.id))
-        } else {
-          // old connection
-          duplicate.destroy()
-        }
+      if (duplicate === peer) {
+        throw new ERR_CONNECTION_DUPLICATED(toHex(this.id), toHex(peer.id))
       }
 
       this._bindSocketEvents(peer)
@@ -146,6 +140,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     socket.on('connect', () => {
       log('connect', { peer })
       if (socket.destroyed) {
+        return
+      }
+
+      const duplicate = this._checkForDuplicate(peer)
+      if (duplicate) {
+        duplicate.destroy()
         return
       }
 
