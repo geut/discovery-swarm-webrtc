@@ -9,7 +9,7 @@ const { SocketSignalWebsocketServer } = require('socket-signal-websocket')
 const { addPeer } = require('./helpers/peers')
 
 const MAX_NODES = 30
-const TIMEOUT = 30 * 1000
+const TIMEOUT = 50 * 1000
 
 const startServer = async () => {
   const server = require('http').createServer()
@@ -60,12 +60,18 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
 
   t.equal(graph.getNodesCount(), MAX_NODES, `Should have ${MAX_NODES} nodes`)
 
+  const connected = []
+
   while (!end) {
-    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+    await new Promise(resolve => setTimeout(resolve, 15 * 1000))
     let found = true
     graph.forEachNode(function (node) {
       if (node.id === fromId) return
+      const key = `${fromId} ${node.id}`
+      if (connected.includes(key)) return
       found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
+      connected.push(key)
+      console.log(`${fromId.slice(0, 6)}... ${node.id.slice(0, 6)}... connected`)
     })
     end = found
   }
