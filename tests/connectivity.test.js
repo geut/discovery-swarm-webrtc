@@ -70,6 +70,9 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
       const key = `${fromId} ${node.id}`
       if (connected.includes(key)) return
       found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
+      if (!found) {
+        return true
+      }
       connected.push(key)
       console.log(`${fromId.slice(0, 6)}... ${node.id.slice(0, 6)}... connected`)
     })
