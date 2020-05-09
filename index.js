@@ -24,15 +24,18 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     assert(Buffer.isBuffer(id) && id.length === 32, 'The `id` option needs to be a Buffer of 32 bytes.')
 
     this.id = id
+
+    const queueTimeout = timeout * 2
+
     this.signal = signal || new MMSTSignalClient({
       id: this.id,
       bootstrap,
       mmstOpts: {
         maxPeers,
-        queueTimeout: timeout, // queue mmst
+        queueTimeout, // queue mmst
         lookupTimeout: timeout
       },
-      queueTimeout: timeout, // socket-signal queue request
+      queueTimeout, // socket-signal queue request
       requestTimeout: timeout,
       createConnection: peer => this._createConnection(peer),
       simplePeer,
