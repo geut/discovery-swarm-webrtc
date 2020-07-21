@@ -102,6 +102,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _createConnection (peer) {
+    peer.subscribeMediaStream()
+
     peer.channel = peer.topic
 
     peer.getInfo = () => ({
