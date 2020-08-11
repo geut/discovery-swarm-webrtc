@@ -142,34 +142,33 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _bindSocketEvents (peer) {
-    const socket = peer
     const info = peer.getInfo()
 
-    socket.on('error', err => {
+    peer.on('error', err => {
       log('error', err)
       this.emit('connection-error', err, info)
     })
 
-    socket.on('connect', () => {
+    peer.on('connect', () => {
       log('connect', { peer })
-      if (socket.destroyed) {
+      if (peer.stream.destroyed) {
         return
       }
 
       if (!this._stream) {
-        this._handleConnection(socket, info)
+        this._handleConnection(peer.stream, info)
         return
       }
 
       const conn = this._stream(info)
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
-      pump(socket, conn, socket)
+      pump(peer.stream, conn, peer.stream)
     })
 
-    socket.on('close', () => {
+    peer.on('close', () => {
       log('close', { peer })
-      this.emit('connection-closed', socket, info)
+      this.emit('connection-closed', peer.stream, info)
     })
   }
 
