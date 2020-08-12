@@ -46,7 +46,7 @@
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
     "pump": "^3.0.0",
-    "socket-signal-websocket": "^6.0.0"
+    "socket-signal-websocket": "^8.0.0"
   },
   "devDependencies": {
     "@dxos/browser-runner": "^1.0.0-beta.7",

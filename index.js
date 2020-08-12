@@ -18,7 +18,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     super()
     log('opts', opts)
 
-    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 4, timeout = 10 * 1000, signal } = opts
+    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 4, timeout = 15 * 1000, signal } = opts
 
     assert(Array.isArray(bootstrap) && bootstrap.length > 0, 'The `bootstrap` options is required.')
     assert(Buffer.isBuffer(id) && id.length === 32, 'The `id` option needs to be a Buffer of 32 bytes.')
@@ -30,14 +30,13 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this.signal = signal || new MMSTSignalClient({
       id: this.id,
       bootstrap,
+      createConnection: peer => this._createConnection(peer),
       mmstOpts: {
         maxPeers,
         queueTimeout, // queue mmst
         lookupTimeout: timeout
       },
-      queueTimeout, // socket-signal queue request
       requestTimeout: timeout,
-      createConnection: peer => this._createConnection(peer),
       simplePeer,
       reconnectingWebsocket: {
         connectionTimeout: timeout
@@ -65,7 +64,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   getPeers (channel) {
     if (channel) return this.signal.getPeersByTopic(channel)
-    return this.signal.peers
+    return this.signal.peersConnected
   }
 
   join (channel) {
