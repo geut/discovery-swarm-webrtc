@@ -117,6 +117,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       initiator: peer.initiator
     })
 
+    peer.stream.addStream = stream => peer.addStream(stream)
+
     log('createConnection', { info: peer.printInfo() })
 
     try {
