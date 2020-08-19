@@ -4,6 +4,7 @@ const createGraph = require('ngraph.graph')
 const createGraphPath = require('ngraph.path')
 
 const { addPeer } = require('./helpers/peers')
+const createSwarm = require('..')
 
 const MAX_NODES = 100
 const TIMEOUT = 50 * 1000
@@ -51,6 +52,34 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   }
 
   t.equal(connected.length, graph.getNodesCount(), 'Full network connection')
+
+  t.end()
+})
+
+test.only('direct connection', async (t) => {
+  const topic = crypto.randomBytes(32)
+
+  const swarm1 = createSwarm({
+    bootstrap: [URL]
+  })
+  const swarm2 = createSwarm({
+    bootstrap: [URL]
+  })
+
+  swarm2.join(topic)
+
+  try {
+    const [connection] = await Promise.all([
+      swarm1.connect(topic, swarm2.id),
+      new Promise(resolve => swarm2.once('connection', resolve))
+    ])
+
+    t.equal(swarm1.connected.length, 1, 'should have 1 connection')
+    t.equal(swarm2.connected.length, 1, 'should have 1 connection')
+    t.ok(connection && connection.pipe !== undefined, 'should return a connection stream')
+  } catch (err) {
+    t.error(err)
+  }
 
   t.end()
 })

@@ -50,12 +50,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._initialize(opts)
   }
 
-  get connecting () {
-    return this.peersConnecting
+  get connected () {
+    return this.signal.peersConnected
   }
 
-  get connected () {
-    return this.peers
+  get connecting () {
+    return this.signal.peersConnecting
   }
 
   listen () {
@@ -80,6 +80,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   close (cb = callbackPromise()) {
     resolveCallback(this._close(), cb)
     return cb.promise
+  }
+
+  async connect (channel, peerId) {
+    assert(channel && Buffer.isBuffer(channel), 'channel must be a buffer')
+    assert(peerId && Buffer.isBuffer(peerId), 'peerId must be a buffer')
+
+    const peer = this.signal.connect(peerId, channel)
+    peer.subscribeMediaStream = true
+    await peer.ready()
+    return peer.stream
   }
 
   async _close () {

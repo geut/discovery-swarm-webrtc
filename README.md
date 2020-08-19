@@ -77,7 +77,7 @@ Creates a new Swarm.
   bootstrap: [string], // urls to your socket.io endpoints
   stream: (info) => stream, // stream to replicate across peers
   simplePeer: {}, // options for the simplePeer instances,
-  maxPeers: 4, // max connections by peer
+  maxPeers: 10, // max connections by peer
   connectionTimeout: 10 * 1000, // defines the time to wait to establish a connection,
   requestTimeout: 5 * 1000 // defines the time to wait for the result of a request to the server
 }
