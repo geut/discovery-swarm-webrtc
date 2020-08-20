@@ -18,7 +18,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     super()
     log('opts', opts)
 
-    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 4, timeout = 15 * 1000, signal } = opts
+    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 5, timeout = 15 * 1000, signal } = opts
 
     assert(Array.isArray(bootstrap) && bootstrap.length > 0, 'The `bootstrap` options is required.')
     assert(Buffer.isBuffer(id) && id.length === 32, 'The `id` option needs to be a Buffer of 32 bytes.')
