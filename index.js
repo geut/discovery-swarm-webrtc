@@ -86,7 +86,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     assert(channel && Buffer.isBuffer(channel), 'channel must be a buffer')
     assert(peerId && Buffer.isBuffer(peerId), 'peerId must be a buffer')
 
-    const peer = this.signal.connect(peerId, channel)
+    const peer = this.signal.connect(channel, peerId)
     peer.subscribeMediaStream = true
     await peer.ready()
     return peer.stream
@@ -108,6 +108,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('peer-error', err => this.emit('error', err))
     signal.on('error', err => this.emit('error', err))
     signal.open().catch(err => process.nextTick(() => this.emit('error', err)))
+    signal.on('candidates-updated', (...args) => this.emit('candidates-updated', ...args))
   }
 
   _createConnection (peer) {

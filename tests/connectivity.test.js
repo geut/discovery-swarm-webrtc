@@ -56,7 +56,7 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   t.end()
 })
 
-test.only('direct connection', async (t) => {
+test('direct connection', async (t) => {
   const topic = crypto.randomBytes(32)
 
   const swarm1 = createSwarm({
