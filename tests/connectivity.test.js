@@ -2,53 +2,25 @@ const test = require('tape')
 const crypto = require('crypto')
 const createGraph = require('ngraph.graph')
 const createGraphPath = require('ngraph.path')
-const getPort = require('get-port')
-const wrtc = require('wrtc')
-const { SocketSignalWebsocketServer } = require('socket-signal-websocket')
 
 const { addPeer } = require('./helpers/peers')
+const createSwarm = require('..')
 
-const MAX_NODES = 30
-const TIMEOUT = 30 * 1000
-
-const startServer = async () => {
-  const server = require('http').createServer()
-
-  const signal = new SocketSignalWebsocketServer({ server, requestTimeout: 10 * 1000 })
-
-  const port = await getPort()
-
-  return new Promise(resolve => server.listen(port, () => {
-    resolve({ server, signal, url: `http://localhost:${port}` })
-  }))
-}
-
-const close = async (server, graph) => {
-  const wait = []
-  graph.forEachNode(node => {
-    wait.push(node.data.close())
-  })
-  await Promise.all(wait)
-  return new Promise(resolve => server.close(resolve))
-}
+const MAX_NODES = 100
+const TIMEOUT = 50 * 1000
+const URL = 'ws://localhost:3001'
 
 test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   t.timeoutAfter(TIMEOUT)
 
   const graph = createGraph()
   const topic = crypto.randomBytes(32)
-  const { server, url } = await startServer(t)
-
-  t.comment(`discovery-swarm-webrtc running on ${url}`)
 
   const swarms = [...Array(MAX_NODES).keys()].map(n => addPeer(
     graph,
     topic,
     {
-      bootstrap: [url],
-      simplePeer: {
-        wrtc
-      }
+      bootstrap: [URL]
     }
   ))
 
@@ -60,19 +32,54 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
 
   t.equal(graph.getNodesCount(), MAX_NODES, `Should have ${MAX_NODES} nodes`)
 
+  const connected = [fromId]
+
   while (!end) {
-    await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+    await new Promise(resolve => setTimeout(resolve, 10 * 1000))
     let found = true
     graph.forEachNode(function (node) {
       if (node.id === fromId) return
+      const key = `${fromId} ${node.id}`
+      if (connected.includes(key)) return
       found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
+      if (!found) {
+        return true
+      }
+      connected.push(key)
+      console.log(`${fromId.slice(0, 6)}... ${node.id.slice(0, 6)}... connected`)
     })
     end = found
   }
 
-  t.comment('Full network connection.')
+  t.equal(connected.length, graph.getNodesCount(), 'Full network connection')
 
-  await close(server, graph)
+  t.end()
+})
+
+test('direct connection', async (t) => {
+  const topic = crypto.randomBytes(32)
+
+  const swarm1 = createSwarm({
+    bootstrap: [URL]
+  })
+  const swarm2 = createSwarm({
+    bootstrap: [URL]
+  })
+
+  swarm2.join(topic)
+
+  try {
+    const [connection] = await Promise.all([
+      swarm1.connect(topic, swarm2.id),
+      new Promise(resolve => swarm2.once('connection', resolve))
+    ])
+
+    t.equal(swarm1.connected.length, 1, 'should have 1 connection')
+    t.equal(swarm2.connected.length, 1, 'should have 1 connection')
+    t.ok(connection && connection.pipe !== undefined, 'should return a connection stream')
+  } catch (err) {
+    t.error(err)
+  }
 
   t.end()
 })

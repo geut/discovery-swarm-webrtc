@@ -36,7 +36,8 @@ $ discovery-swarm-webrtc --port=4000
 
 #### Public Servers
 
-- https://geut-webrtc-signal.herokuapp.com/
+- wss://geut-webrtc-signal-v3.glitch.me
+- wss://geut-webrtc-signal-v3.herokuapp.com
 
 #### Deploy to Heroku
 
@@ -74,12 +75,11 @@ Creates a new Swarm.
 ```javascript
 {
   id: crypto.randomBytes(32), // peer-id for user
-  bootstrap: [string], // urls to your socket.io endpoints
+  bootstrap: [string], // urls to your websocket endpoints
   stream: (info) => stream, // stream to replicate across peers
   simplePeer: {}, // options for the simplePeer instances,
-  maxPeers: 4, // max connections by peer
-  connectionTimeout: 10 * 1000, // defines the time to wait to establish a connection,
-  requestTimeout: 5 * 1000 // defines the time to wait for the result of a request to the server
+  maxPeers: 5, // max connections by peer
+  timeout: 15 * 1000, // defines the time to wait to establish a connection
 }
 ```
 
@@ -100,6 +100,10 @@ Close the entire swarm. Destroy all the connections and disconnect from the sign
 Returns the list of peers for a specific channel.
 
 Channel is `optional`, if you don't pass it you get the entire list of peers.
+
+#### `sw.connect(channel: Buffer, peerId: Buffer) -> Promise<SimplePeer>`
+
+Connect directly to a specific peer.
 
 ### Events
 
@@ -133,7 +137,7 @@ Emitted when you left a channel.
 
 Emitted when the swarm was closed.
 
-#### `sw.on('candidates', function(channel, candidates) { ... })`
+#### `sw.on('candidates-updated', function(channel, candidates) { ... })`
 
 Emitted when the candidates peer for a specific channel was updated. `candidates` is an array of Buffer id.
 
@@ -147,8 +151,8 @@ Emitted when the candidates peer for a specific channel was updated. `candidates
 
 ## Sponsored By
 [
-<img src="https://d33wubrfki0l68.cloudfront.net/4f6804cf76b6552ddb15a6c3cc4faf16114977ea/64559/images/wireline-hero-large.svg" alt="Wireline" width="350px" />
-](https://www.wireline.io/)
+<img src="https://dxos.org/images/logo/dxos-logo-type-dark.png" alt="DXOS" width="350px" />
+](https://dxos.org/)
 
 ## License
 

@@ -18,21 +18,25 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     super()
     log('opts', opts)
 
-    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 4, timeout = 10 * 1000, signal } = opts
+    const { id = crypto.randomBytes(32), bootstrap, stream, simplePeer, maxPeers = 5, timeout = 15 * 1000, signal } = opts
 
     assert(Array.isArray(bootstrap) && bootstrap.length > 0, 'The `bootstrap` options is required.')
     assert(Buffer.isBuffer(id) && id.length === 32, 'The `id` option needs to be a Buffer of 32 bytes.')
 
     this.id = id
+
+    const queueTimeout = timeout * 2
+
     this.signal = signal || new MMSTSignalClient({
       id: this.id,
       bootstrap,
-      maxPeers,
-      requestTimeout: timeout,
-      queueTimeout: timeout,
-      lookupTimeout: timeout,
-      mmstTimeout: timeout * 2,
       createConnection: peer => this._createConnection(peer),
+      mmstOpts: {
+        maxPeers,
+        queueTimeout, // queue mmst
+        lookupTimeout: timeout
+      },
+      requestTimeout: timeout,
       simplePeer,
       reconnectingWebsocket: {
         connectionTimeout: timeout
@@ -46,12 +50,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     this._initialize(opts)
   }
 
-  get connecting () {
-    return this.peersConnecting
+  get connected () {
+    return this.signal.peersConnected
   }
 
-  get connected () {
-    return this.peers
+  get connecting () {
+    return this.signal.peersConnecting
   }
 
   listen () {
@@ -60,7 +64,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
 
   getPeers (channel) {
     if (channel) return this.signal.getPeersByTopic(channel)
-    return this.signal.peers
+    return this.signal.peersConnected
   }
 
   join (channel) {
@@ -76,6 +80,16 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   close (cb = callbackPromise()) {
     resolveCallback(this._close(), cb)
     return cb.promise
+  }
+
+  async connect (channel, peerId) {
+    assert(channel && Buffer.isBuffer(channel), 'channel must be a buffer')
+    assert(peerId && Buffer.isBuffer(peerId), 'peerId must be a buffer')
+
+    const peer = this.signal.connect(channel, peerId)
+    peer.subscribeMediaStream = true
+    await peer.ready()
+    return peer.stream
   }
 
   async _close () {
@@ -94,9 +108,12 @@ class DiscoverySwarmWebrtc extends EventEmitter {
     signal.on('peer-error', err => this.emit('error', err))
     signal.on('error', err => this.emit('error', err))
     signal.open().catch(err => process.nextTick(() => this.emit('error', err)))
+    signal.on('candidates-updated', (...args) => this.emit('candidates-updated', ...args))
   }
 
   _createConnection (peer) {
+    peer.subscribeMediaStream = true
+
     peer.channel = peer.topic
 
     peer.getInfo = () => ({
@@ -110,6 +127,8 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       channel: toHex(peer.topic),
       initiator: peer.initiator
     })
+
+    peer.stream.addStream = stream => peer.addStream(stream)
 
     log('createConnection', { info: peer.printInfo() })
 
@@ -135,34 +154,33 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _bindSocketEvents (peer) {
-    const socket = peer
     const info = peer.getInfo()
 
-    socket.on('error', err => {
+    peer.on('error', err => {
       log('error', err)
       this.emit('connection-error', err, info)
     })
 
-    socket.on('connect', () => {
+    peer.on('connect', () => {
       log('connect', { peer })
-      if (socket.destroyed) {
+      if (peer.stream.destroyed) {
         return
       }
 
       if (!this._stream) {
-        this._handleConnection(socket, info)
+        this._handleConnection(peer.stream, info)
         return
       }
 
       const conn = this._stream(info)
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
-      pump(socket, conn, socket)
+      pump(peer.stream, conn, peer.stream)
     })
 
-    socket.on('close', () => {
+    peer.on('close', () => {
       log('close', { peer })
-      this.emit('connection-closed', socket, info)
+      this.emit('connection-closed', peer.stream, info)
     })
   }
 
