@@ -81,7 +81,7 @@ Creates a new Swarm.
 ```javascript
 {
   id: crypto.randomBytes(32), // peer-id for user
-  bootstrap: [string], // urls to your socket.io endpoints
+  bootstrap: [string], // urls to your websocket endpoints
   stream: (info) => stream, // stream to replicate across peers
   simplePeer: {}, // options for the simplePeer instances,
   maxPeers: 5, // max connections by peer
