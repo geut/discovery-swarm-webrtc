@@ -36,6 +36,13 @@ $ discovery-swarm-webrtc --port=4000
 
 #### Public Servers
 
+v3:
+
+- wss://geut-webrtc-signal-v3.glitch.me
+- wss://geut-webrtc-signal-v3.herokuapp.com
+
+v2:
+
 - https://geut-webrtc-signal.herokuapp.com/
 
 #### Deploy to Heroku
