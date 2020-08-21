@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 4.0.0 - 2020-08-21 [YANKED]
+
 ## [3.0.0] - 2020-08-21
 ### Added
 - Replace socket.io/simple-signal in favor of socket-signal
@@ -48,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - move signal websocket logic outside to provide a clean signal API.
 
 ## 1.0.0 - 2019-09-11 [YANKED]
-[Unreleased]: https://github.com/geut/discovery-swarm-webrtc/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/geut/discovery-swarm-webrtc/compare/v4.0.0...HEAD
 [3.0.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.2.7...v3.0.0
 [2.2.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.1.1...v2.2.0
 [2.1.0]: https://github.com/geut/discovery-swarm-webrtc/compare/v2.0.0...v2.1.0
