@@ -1,21 +1,23 @@
+const crypto = require('crypto')
 const createGraph = require('ngraph.graph')
 const ForceGraph = require('force-graph').default
 const { addPeer: _addPeer, removePeer: _removePeer, findPeer } = require('../tests/helpers/peers')
 const { nodesToArray } = require('../tests/helpers/graph')
 
 const MAX_PEERS = 2
-const TOPIC = Buffer.from('batman')
+const TOPIC = crypto.randomBytes(32)
 
 const graph = createGraph()
 const peersTitle = document.getElementById('peers-title')
 const connectionsTitle = document.getElementById('connections-title')
 const addPeer = () => _addPeer(graph, TOPIC, {
-  bootstrap: ['http://localhost:4000']
+  bootstrap: ['ws://localhost:4000', 'ws://localhost:5000']
 })
 const removePeer = (id) => _removePeer(graph, id)
 const addMany = n => [...Array(n).keys()].forEach(() => addPeer())
 const deleteMany = n => [...Array(n).keys()].forEach(() => removePeer())
 
+window.graph = graph
 window.findPeer = id => findPeer(graph, id)
 
 document.getElementById('add-peer').addEventListener('click', () => {

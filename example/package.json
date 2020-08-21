@@ -8,7 +8,8 @@
     "> 5%"
   ],
   "scripts": {
-    "start": "node ../bin/index.js & parcel index.html --no-cache"
+    "build": "parcel index.html --no-cache",
+    "start": "node ../bin/index.js & npm run build"
   },
   "keywords": [],
   "author": "",
