@@ -6,7 +6,7 @@ const createGraphPath = require('ngraph.path')
 const { addPeer } = require('./helpers/peers')
 const createSwarm = require('..')
 
-const MAX_NODES = 10
+const MAX_NODES = 100
 const TIMEOUT = 50 * 1000
 const URL = 'ws://localhost:4000'
 
