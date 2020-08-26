@@ -6,9 +6,9 @@ const createGraphPath = require('ngraph.path')
 const { addPeer } = require('./helpers/peers')
 const createSwarm = require('..')
 
-const MAX_NODES = 100
+const MAX_NODES = 10
 const TIMEOUT = 50 * 1000
-const URL = 'ws://localhost:3001'
+const URL = 'ws://localhost:4000'
 
 test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
   t.timeoutAfter(TIMEOUT)
@@ -67,6 +67,8 @@ test('direct connection', async (t) => {
   })
 
   swarm2.join(topic)
+
+  await new Promise(resolve => setTimeout(() => resolve(), 0))
 
   try {
     const [connection] = await Promise.all([

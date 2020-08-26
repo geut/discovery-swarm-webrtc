@@ -1,0 +1,8 @@
+providers:
+  - airtap-playwright
+
+server: './bin/index.js'
+
+browsers:
+  - name: chromium
+  - name: ff
