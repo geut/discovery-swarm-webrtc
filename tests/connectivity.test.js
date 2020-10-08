@@ -53,6 +53,10 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
 
   t.equal(connected.length, graph.getNodesCount(), 'Full network connection')
 
+  await Promise.all(swarms.map(swarm => swarm.leave(topic)))
+
+  t.equal(swarms.reduce((prev, curr) => prev + curr.connected.length, 0), 0, 'Should leave and disconnect from every peer')
+
   t.end()
 })
 
