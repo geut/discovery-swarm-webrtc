@@ -5,4 +5,6 @@ server: './bin/index.js'
 
 browsers:
   - name: chromium
-  - name: ff
+    options:
+      launch:
+        args: [--use-fake-ui-for-media-stream]

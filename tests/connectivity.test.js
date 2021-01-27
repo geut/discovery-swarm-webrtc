@@ -89,3 +89,43 @@ test('direct connection', async (t) => {
 
   t.end()
 })
+
+test('mediaStream', async (t) => {
+  async function getRemoteStream (conn) {
+    if (conn._remoteStreams.length > 0) {
+      return conn._remoteStreams[0]
+    }
+    return new Promise(resolve => conn.once('stream', resolve))
+  }
+
+  const topic = crypto.randomBytes(32)
+
+  const swarm1 = createSwarm({
+    bootstrap: [URL],
+    simplePeer: {
+      streams: [await navigator.mediaDevices.getUserMedia({ video: true, audio: true })]
+    }
+  })
+
+  const swarm2 = createSwarm({
+    bootstrap: [URL]
+  })
+
+  swarm2.join(topic)
+
+  await new Promise(resolve => setTimeout(() => resolve(), 0))
+
+  try {
+    const [, remote] = await Promise.all([
+      swarm1.connect(topic, swarm2.id),
+      new Promise(resolve => swarm2.once('connection', resolve))
+    ])
+
+    const remoteStream = await getRemoteStream(remote)
+    t.ok(remoteStream !== undefined, 'should return a mediaStream')
+  } catch (err) {
+    t.error(err)
+  }
+
+  t.end()
+})
