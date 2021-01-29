@@ -199,7 +199,7 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   _checkForDuplicate (peer) {
-    const oldPeer = this.getPeers(peer.channel).find(p => p.id.equals(peer.id) && !p.sessionId.equals(peer.sessionId))
+    const oldPeer = this.signal.getPeersByTopic(peer.channel).find(p => p.id.equals(peer.id) && !p.sessionId.equals(peer.sessionId))
     if (!oldPeer) {
       return
     }
