@@ -97,7 +97,7 @@ Close the entire swarm. Destroy all the connections and disconnect from the sign
 
 #### `const arrayOfPeers = sw.getPeers([channel])`
 
-Returns the list of peers for a specific channel.
+Returns the list of connected peers for a specific channel.
 
 Channel is `optional`, if you don't pass it you get the entire list of peers.
 

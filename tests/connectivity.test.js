@@ -41,7 +41,7 @@ test(`graph connectivity for ${MAX_NODES} peers`, async (t) => {
       if (node.id === fromId) return
       const key = `${fromId} ${node.id}`
       if (connected.includes(key)) return
-      found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers().length > 0)
+      found = found && (pathFinder.find(fromId, node.id).length > 0) && (node.data.getPeers(topic).length > 0)
       if (!found) {
         return true
       }
@@ -90,7 +90,7 @@ test('direct connection', async (t) => {
   t.end()
 })
 
-test('mediaStream', async (t) => {
+test.skip('mediaStream', async (t) => {
   async function getRemoteStream (conn) {
     if (conn._remoteStreams.length > 0) {
       return conn._remoteStreams[0]

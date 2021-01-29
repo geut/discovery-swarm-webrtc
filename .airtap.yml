@@ -8,3 +8,4 @@ browsers:
     options:
       launch:
         args: [--use-fake-ui-for-media-stream]
+  - name: firefox

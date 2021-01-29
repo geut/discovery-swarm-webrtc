@@ -67,7 +67,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
   }
 
   getPeers (channel) {
-    if (channel) return this.signal.getPeersByTopic(channel)
+    if (channel) {
+      return this.signal
+        .getPeersByTopic(channel)
+        .filter(p => p.connected)
+    }
     return this.signal.peersConnected
   }
 
