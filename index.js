@@ -179,6 +179,11 @@ class DiscoverySwarmWebrtc extends EventEmitter {
       }
 
       const conn = this._stream(info)
+      if (!conn) {
+        this._handleConnection(peer.stream, info)
+        return
+      }
+
       this.emit('handshaking', conn, info)
       conn.on('handshake', this._handshake.bind(this, conn, info))
       pump(peer.stream, conn, peer.stream)
